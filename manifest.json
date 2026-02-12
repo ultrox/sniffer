@@ -6,30 +6,30 @@
   "permissions": ["webRequest", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup.html",
     "default_icon": {
-      "16": "icon.png",
-      "48": "icon.png",
-      "128": "icon.png"
+      "16": "src/icon.png",
+      "48": "src/icon.png",
+      "128": "src/icon.png"
     }
   },
   "icons": {
-    "16": "icon.png",
-    "48": "icon.png",
-    "128": "icon.png"
+    "16": "src/icon.png",
+    "48": "src/icon.png",
+    "128": "src/icon.png"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["bridge.js"],
+      "js": ["src/bridge.js"],
       "run_at": "document_start"
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["intercept.js"],
+      "js": ["src/intercept.js"],
       "run_at": "document_start",
       "world": "MAIN"
     }
