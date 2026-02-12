@@ -82,8 +82,7 @@ function renderRequests(items) {
     return;
   }
   requestsEl.innerHTML = items
-    .slice()
-    .reverse()
+    .toReversed()
     .map(
       (r) => `
     <div class="req">
@@ -104,8 +103,7 @@ function renderRecordings(recs, replayRecordingId) {
     return;
   }
   recordingsEl.innerHTML = recs
-    .slice()
-    .reverse()
+    .toReversed()
     .map(
       (r) => `
     <div class="rec-item" data-id="${r.id}">

@@ -1,0 +1,9 @@
+{
+  "name": "sniffer",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix ."
+  }
+}
