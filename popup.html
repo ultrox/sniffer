@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 480px; max-height: 560px; font: 13px/1.4 monospace; background: #1a1a2e; color: #e0e0e0; }
+
+  .toolbar { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #333; align-items: center; }
+  .toolbar button {
+    padding: 4px 12px; border: 1px solid #444; border-radius: 4px;
+    background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: inherit;
+  }
+  .toolbar button:hover { background: #3a3a4e; }
+  .toolbar button.active { background: #e74c3c; border-color: #e74c3c; color: #fff; }
+  .count { margin-left: auto; color: #888; }
+
+  .requests { overflow-y: auto; max-height: 510px; }
+  .req {
+    display: grid; grid-template-columns: 56px 48px 1fr 40px;
+    gap: 8px; padding: 4px 8px; border-bottom: 1px solid #222; align-items: center;
+  }
+  .req:hover { background: #2a2a3e; }
+  .method { font-weight: bold; }
+  .method.GET { color: #2ecc71; }
+  .method.POST { color: #e67e22; }
+  .method.PUT { color: #3498db; }
+  .method.DELETE { color: #e74c3c; }
+  .method.PATCH { color: #9b59b6; }
+  .type { color: #888; font-size: 11px; }
+  .url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .status { text-align: right; font-size: 12px; }
+  .status.ok { color: #2ecc71; }
+  .status.err { color: #e74c3c; }
+  .status.redir { color: #f39c12; }
+
+  .empty { padding: 40px; text-align: center; color: #666; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="toggle">Sniff</button>
+    <button id="clear">Clear</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="requests" id="requests">
+    <div class="empty">Hit Sniff to start capturing requests</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
