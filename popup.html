@@ -3,7 +3,7 @@
 <head>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: 480px; max-height: 560px; font: 13px/1.4 monospace; background: #1a1a2e; color: #e0e0e0; }
+  body { width: 480px; max-height: 600px; font: 13px/1.4 monospace; background: #1a1a2e; color: #e0e0e0; }
 
   .toolbar { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #333; align-items: center; }
   .toolbar button {
@@ -12,9 +12,13 @@
   }
   .toolbar button:hover { background: #3a3a4e; }
   .toolbar button.active { background: #e74c3c; border-color: #e74c3c; color: #fff; }
+  .toolbar button.recording { background: #e74c3c; border-color: #e74c3c; color: #fff; animation: pulse 1s infinite; }
+  .toolbar button.replaying { background: #2ecc71; border-color: #2ecc71; color: #fff; }
   .count { margin-left: auto; color: #888; }
 
-  .requests { overflow-y: auto; max-height: 510px; }
+  @keyframes pulse { 50% { opacity: 0.6; } }
+
+  .requests { overflow-y: auto; max-height: 300px; }
   .req {
     display: grid; grid-template-columns: 56px 48px 1fr 40px;
     gap: 8px; padding: 4px 8px; border-bottom: 1px solid #222; align-items: center;
@@ -33,18 +37,46 @@
   .status.err { color: #e74c3c; }
   .status.redir { color: #f39c12; }
 
-  .empty { padding: 40px; text-align: center; color: #666; }
+  .empty { padding: 32px; text-align: center; color: #666; }
+
+  .section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; background: #222; border-top: 1px solid #333;
+    border-bottom: 1px solid #333; font-size: 11px; color: #888; text-transform: uppercase;
+    cursor: pointer; user-select: none;
+  }
+  .section-header:hover { background: #2a2a3e; }
+
+  .recordings { overflow-y: auto; max-height: 200px; }
+  .rec-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-bottom: 1px solid #222;
+  }
+  .rec-item:hover { background: #2a2a3e; }
+  .rec-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .rec-meta { color: #666; font-size: 11px; white-space: nowrap; }
+  .rec-item button {
+    padding: 2px 8px; border: 1px solid #444; border-radius: 3px;
+    background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: 11px monospace;
+  }
+  .rec-item button:hover { background: #3a3a4e; }
+  .rec-item button.active-replay { background: #2ecc71; border-color: #2ecc71; color: #fff; }
+  .rec-item button.del { color: #e74c3c; border-color: transparent; background: transparent; }
+  .rec-item button.del:hover { background: #3a1a1e; }
 </style>
 </head>
 <body>
   <div class="toolbar">
     <button id="toggle">Sniff</button>
+    <button id="record">Record</button>
     <button id="clear">Clear</button>
     <span class="count" id="count"></span>
   </div>
   <div class="requests" id="requests">
     <div class="empty">Hit Sniff to start capturing requests</div>
   </div>
+  <div class="section-header" id="recHeader">Recordings <span id="recCount"></span></div>
+  <div class="recordings" id="recordings"></div>
   <script src="popup.js"></script>
 </body>
 </html>
