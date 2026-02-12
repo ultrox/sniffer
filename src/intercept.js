@@ -13,7 +13,48 @@
   }
 
   function findMatch(url, method) {
-    return replayEntries.find((e) => e.url === url && e.method === method);
+    // 1. Exact match
+    const exact = replayEntries.find(
+      (e) => e.url === url && e.method === method
+    );
+    if (exact) return exact;
+
+    // 2. Match ignoring query param order / extra params
+    try {
+      const u = new URL(url);
+      const path = u.pathname;
+      const params = u.searchParams;
+
+      // Same path + method candidates
+      const candidates = replayEntries.filter((e) => {
+        try {
+          return new URL(e.url).pathname === path && e.method === method;
+        } catch {
+          return false;
+        }
+      });
+
+      if (candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      // Score by matching query params — most matches wins
+      let best = null;
+      let bestScore = -1;
+      for (const c of candidates) {
+        const cp = new URL(c.url).searchParams;
+        let score = 0;
+        for (const [k, v] of cp) {
+          if (params.get(k) === v) score++;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = c;
+        }
+      }
+      return best;
+    } catch {
+      return null;
+    }
   }
 
   // --- Patch fetch ---
