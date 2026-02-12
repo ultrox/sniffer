@@ -111,6 +111,7 @@ function renderRecordings(recs, replayRecordingId) {
     <div class="rec-item" data-id="${r.id}">
       <span class="rec-name" data-id="${r.id}" title="Click to view/edit">${esc(r.name)}</span>
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
+      <button class="edit" data-id="${r.id}">Edit</button>
       <button class="replay ${replayRecordingId === r.id ? "active-replay" : ""}" data-id="${r.id}">
         ${replayRecordingId === r.id ? "Stop" : "Replay"}
       </button>
@@ -183,16 +184,14 @@ clearBtn.addEventListener("click", () => {
 });
 
 recordingsEl.addEventListener("click", (e) => {
-  // Click recording name -> open detail
-  const nameEl = e.target.closest(".rec-name");
-  if (nameEl) {
-    openDetail(nameEl.dataset.id);
-    return;
-  }
-
   const btn = e.target.closest("button");
   if (!btn) return;
   const id = btn.dataset.id;
+
+  if (btn.classList.contains("edit")) {
+    openDetail(id);
+    return;
+  }
 
   if (btn.classList.contains("replay")) {
     chrome.runtime.sendMessage({ type: "getState" }, (res) => {
