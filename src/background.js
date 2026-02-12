@@ -7,13 +7,13 @@ let recording = false;
 let recordTabId = null;
 let recordEntries = [];
 let recordFilters = ["xhr", "fetch"];
+let ignorePatterns = []; // working set, saved with recording on stop
 
 let replaying = false;
 let replayTabId = null;
 let replayRecordingId = null;
 
 let recordings = [];
-let ignorePatterns = [];
 
 const TYPE_MAP = {
   xmlhttprequest: "xhr",
@@ -31,11 +31,14 @@ const TYPE_MAP = {
   other: "other",
 };
 
-chrome.storage.local.get(["recordings", "recordFilters", "ignorePatterns"], (res) => {
-  recordings = res.recordings || [];
-  if (res.recordFilters) recordFilters = res.recordFilters;
-  if (res.ignorePatterns) ignorePatterns = res.ignorePatterns;
-});
+chrome.storage.local.get(
+  ["recordings", "recordFilters", "ignorePatterns"],
+  (res) => {
+    recordings = res.recordings || [];
+    if (res.recordFilters) recordFilters = res.recordFilters;
+    if (res.ignorePatterns) ignorePatterns = res.ignorePatterns;
+  }
+);
 
 function isIgnored(url) {
   return ignorePatterns.some((p) => url.includes(p));
@@ -131,6 +134,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       id: Date.now().toString(),
       name: `Recording ${recordings.length + 1}`,
       timestamp: Date.now(),
+      ignorePatterns: [...ignorePatterns],
       entries: recordEntries,
     };
     recordings.push(rec);
@@ -147,7 +151,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.source === "sniffer-intercept" && msg.type === "captured") {
     if (recording && msg.entry) {
       if (isIgnored(msg.entry.url)) return false;
-      const cat = msg.entry.kind; // 'fetch' or 'xhr'
+      const cat = msg.entry.kind;
       if (recordFilters.includes(cat)) {
         recordEntries.push(msg.entry);
       }
@@ -207,7 +211,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // Recording detail (entries are large, fetched separately)
+  // Recording detail
   if (msg.type === "getRecording") {
     const rec = recordings.find((r) => r.id === msg.recordingId);
     sendResponse(rec || null);
@@ -229,6 +233,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const rec = recordings.find((r) => r.id === msg.recordingId);
     if (rec && msg.index >= 0 && msg.index < rec.entries.length) {
       rec.entries.splice(msg.index, 1);
+      chrome.storage.local.set({ recordings });
+    }
+    sendResponse({});
+    return true;
+  }
+
+  // Per-recording ignore patterns
+  if (msg.type === "addRecordingIgnore") {
+    const rec = recordings.find((r) => r.id === msg.recordingId);
+    if (rec) {
+      if (!rec.ignorePatterns) rec.ignorePatterns = [];
+      if (!rec.ignorePatterns.includes(msg.pattern)) {
+        rec.ignorePatterns.push(msg.pattern);
+        chrome.storage.local.set({ recordings });
+      }
+    }
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "removeRecordingIgnore") {
+    const rec = recordings.find((r) => r.id === msg.recordingId);
+    if (rec && rec.ignorePatterns) {
+      rec.ignorePatterns = rec.ignorePatterns.filter(
+        (p) => p !== msg.pattern
+      );
       chrome.storage.local.set({ recordings });
     }
     sendResponse({});
@@ -262,7 +292,6 @@ function sendToTab(tabId, mode, entries) {
 // --- webRequest listeners ---
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    // Sniffing
     if (sniffing) {
       if (targetTabId === null || details.tabId === targetTabId) {
         requests.push({
@@ -280,7 +309,6 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 chrome.webRequest.onCompleted.addListener(
   (details) => {
-    // Sniffing - update status
     if (sniffing) {
       if (targetTabId === null || details.tabId === targetTabId) {
         const entry = requests.find(
@@ -293,13 +321,11 @@ chrome.webRequest.onCompleted.addListener(
       }
     }
 
-    // Recording - capture non-XHR types (XHR/fetch handled by content script)
     if (recording && details.tabId === recordTabId) {
       if (isIgnored(details.url)) return;
       const cat = TYPE_MAP[details.type] || "other";
-      if (cat === "xhr") return; // content script handles
+      if (cat === "xhr") return;
       if (!recordFilters.includes(cat)) return;
-
       captureResource(details, cat);
     }
   },

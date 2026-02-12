@@ -6,6 +6,7 @@ const recordBtn = document.getElementById("record");
 const clearBtn = document.getElementById("clear");
 const countEl = document.getElementById("count");
 const filtersEl = document.getElementById("filters");
+const ignoreBar = document.getElementById("ignoreBar");
 const statusBar = document.getElementById("statusBar");
 const requestsEl = document.getElementById("requests");
 const recCountEl = document.getElementById("recCount");
@@ -13,15 +14,23 @@ const recordingsEl = document.getElementById("recordings");
 const backBtn = document.getElementById("backBtn");
 const detailTitle = document.getElementById("detailTitle");
 const detailCount = document.getElementById("detailCount");
+const detailIgnore = document.getElementById("detailIgnore");
 const detailEntries = document.getElementById("detailEntries");
 
-const ignoreBar = document.getElementById("ignoreBar");
-
 // --- State ---
-const ALL_TYPES = ["xhr", "fetch", "script", "css", "img", "font", "doc", "other"];
+const ALL_TYPES = [
+  "xhr",
+  "fetch",
+  "script",
+  "css",
+  "img",
+  "font",
+  "doc",
+  "other",
+];
 let activeFilters = ["xhr", "fetch"];
 let ignorePatterns = [];
-let currentView = "main"; // 'main' | 'detail'
+let currentView = "main";
 let detailRecordingId = null;
 let expandedEntry = -1;
 
@@ -42,6 +51,14 @@ function cleanUrl(url) {
   }
 }
 
+function getHost(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s;
@@ -54,6 +71,15 @@ function timeAgo(ts) {
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
   if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
   return `${Math.floor(sec / 86400)}d ago`;
+}
+
+function renderIgnoreTags(patterns) {
+  return patterns
+    .map(
+      (p) =>
+        `<span class="ignore-tag" data-pattern="${esc(p)}">${esc(p)} <span class="remove">x</span></span>`
+    )
+    .join("");
 }
 
 // --- Filter chips ---
@@ -77,43 +103,40 @@ filtersEl.addEventListener("click", (e) => {
   chrome.runtime.sendMessage({ type: "setFilters", filters: activeFilters });
 });
 
-// --- Ignore patterns ---
-function renderIgnorePatterns() {
-  const tags = ignorePatterns
-    .map(
-      (p) =>
-        `<span class="ignore-tag" data-pattern="${esc(p)}">${esc(p)} <span class="remove">x</span></span>`
-    )
-    .join("");
-  ignoreBar.innerHTML = tags + `<input id="ignoreInput" placeholder="Ignore pattern... (Enter to add)">`;
-  const input = document.getElementById("ignoreInput");
-  input.addEventListener("keydown", onIgnoreKey);
-}
-
-function onIgnoreKey(e) {
-  if (e.key !== "Enter") return;
-  const val = e.target.value.trim();
-  if (!val) return;
-  e.target.value = "";
-  chrome.runtime.sendMessage({ type: "addIgnore", pattern: val }, (res) => {
-    if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
-    renderIgnorePatterns();
-  });
+// --- Working ignore patterns (main view) ---
+function renderIgnoreBar() {
+  ignoreBar.innerHTML =
+    renderIgnoreTags(ignorePatterns) +
+    `<input id="ignoreInput" placeholder="Ignore pattern... (Enter to add)">`;
+  document
+    .getElementById("ignoreInput")
+    .addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const val = e.target.value.trim();
+      if (!val) return;
+      e.target.value = "";
+      chrome.runtime.sendMessage(
+        { type: "addIgnore", pattern: val },
+        (res) => {
+          if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
+          renderIgnoreBar();
+        }
+      );
+    });
 }
 
 ignoreBar.addEventListener("click", (e) => {
   const rm = e.target.closest(".remove");
   if (!rm) return;
-  const tag = rm.closest(".ignore-tag");
-  const pattern = tag?.dataset.pattern;
+  const pattern = rm.closest(".ignore-tag")?.dataset.pattern;
   if (!pattern) return;
   chrome.runtime.sendMessage({ type: "removeIgnore", pattern }, (res) => {
     if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
-    renderIgnorePatterns();
+    renderIgnoreBar();
   });
 });
 
-// --- Main view rendering ---
+// --- Request list ---
 function renderRequests(items) {
   countEl.textContent = `${items.length} req`;
   if (items.length === 0) {
@@ -129,11 +152,24 @@ function renderRequests(items) {
       <span class="type">${r.type || r.kind || ""}</span>
       <span class="url" title="${esc(r.url)}">${esc(cleanUrl(r.url))}</span>
       <span class="status ${statusClass(r.status)}">${r.status || "..."}</span>
+      <span class="req-ignore" data-host="${esc(getHost(r.url))}" title="Ignore ${esc(getHost(r.url))}">ban</span>
     </div>`
     )
     .join("");
 }
 
+requestsEl.addEventListener("click", (e) => {
+  const ban = e.target.closest(".req-ignore");
+  if (!ban) return;
+  const host = ban.dataset.host;
+  if (!host) return;
+  chrome.runtime.sendMessage({ type: "addIgnore", pattern: host }, (res) => {
+    if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
+    renderIgnoreBar();
+  });
+});
+
+// --- Recordings list ---
 function renderRecordings(recs, replayRecordingId) {
   recCountEl.textContent = recs.length ? `(${recs.length})` : "";
   if (recs.length === 0) {
@@ -146,7 +182,7 @@ function renderRecordings(recs, replayRecordingId) {
     .map(
       (r) => `
     <div class="rec-item" data-id="${r.id}">
-      <span class="rec-name" data-id="${r.id}" title="Click to view/edit">${esc(r.name)}</span>
+      <span class="rec-name">${esc(r.name)}</span>
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
       <button class="edit" data-id="${r.id}">Edit</button>
       <button class="replay ${replayRecordingId === r.id ? "active-replay" : ""}" data-id="${r.id}">
@@ -158,6 +194,7 @@ function renderRecordings(recs, replayRecordingId) {
     .join("");
 }
 
+// --- Refresh (main view) ---
 function refresh() {
   if (currentView !== "main") return;
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
@@ -168,7 +205,7 @@ function refresh() {
 
     if (JSON.stringify(ignorePatterns) !== JSON.stringify(res.ignorePatterns || [])) {
       ignorePatterns = res.ignorePatterns || [];
-      renderIgnorePatterns();
+      renderIgnoreBar();
     }
 
     toggleBtn.classList.toggle("active", res.sniffing);
@@ -283,10 +320,48 @@ function loadDetail() {
       }
       detailTitle.textContent = rec.name;
       detailCount.textContent = `${rec.entries.length} req`;
+      renderDetailIgnore(rec.ignorePatterns || []);
       renderDetailEntries(rec.entries);
     }
   );
 }
+
+function renderDetailIgnore(patterns) {
+  detailIgnore.innerHTML =
+    renderIgnoreTags(patterns) +
+    `<input id="detailIgnoreInput" placeholder="Add ignore pattern...">`;
+  document
+    .getElementById("detailIgnoreInput")
+    .addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const val = e.target.value.trim();
+      if (!val) return;
+      e.target.value = "";
+      chrome.runtime.sendMessage(
+        {
+          type: "addRecordingIgnore",
+          recordingId: detailRecordingId,
+          pattern: val,
+        },
+        () => loadDetail()
+      );
+    });
+}
+
+detailIgnore.addEventListener("click", (e) => {
+  const rm = e.target.closest(".remove");
+  if (!rm) return;
+  const pattern = rm.closest(".ignore-tag")?.dataset.pattern;
+  if (!pattern) return;
+  chrome.runtime.sendMessage(
+    {
+      type: "removeRecordingIgnore",
+      recordingId: detailRecordingId,
+      pattern,
+    },
+    () => loadDetail()
+  );
+});
 
 function renderDetailEntries(entries) {
   if (entries.length === 0) {
@@ -348,7 +423,6 @@ function renderDetailEntries(entries) {
 backBtn.addEventListener("click", closeDetail);
 
 detailEntries.addEventListener("click", (e) => {
-  // Delete entry
   const delEl = e.target.closest(".detail-del");
   if (delEl) {
     const idx = parseInt(delEl.dataset.index);
@@ -362,7 +436,6 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
-  // Save edit
   const saveBtn = e.target.closest(".save");
   if (saveBtn) {
     const idx = parseInt(saveBtn.dataset.index);
@@ -391,14 +464,12 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
-  // Cancel edit
   if (e.target.closest(".cancel")) {
     expandedEntry = -1;
     loadDetail();
     return;
   }
 
-  // Click row to expand/collapse
   const row = e.target.closest(".detail-row");
   if (row) {
     const idx = parseInt(row.dataset.index);
@@ -409,5 +480,6 @@ detailEntries.addEventListener("click", (e) => {
 
 // --- Init ---
 renderFilters();
+renderIgnoreBar();
 refresh();
 setInterval(refresh, 500);
