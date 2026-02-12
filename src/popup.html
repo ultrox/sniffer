@@ -97,8 +97,9 @@
   .rec-item:hover { background: #2a2a3e; }
   .rec-name {
     flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-size: 12px;
+    font-size: 12px; cursor: pointer;
   }
+  .rec-name:hover { color: #fff; }
   .rec-meta { color: #666; font-size: 11px; white-space: nowrap; }
   .rec-item button {
     padding: 2px 8px; border: 1px solid #444; border-radius: 3px;
@@ -108,6 +109,10 @@
   .rec-item button.active-replay { background: #2ecc71; border-color: #2ecc71; color: #fff; }
   .rec-item button.del { color: #e74c3c; border-color: transparent; background: transparent; }
   .rec-item button.del:hover { background: #3a1a1e; }
+  .rename-input {
+    flex: 1; padding: 2px 6px; background: #1a1a2e; border: 1px solid #7a7aaa;
+    border-radius: 3px; color: #e0e0e0; font: 12px monospace; outline: none;
+  }
 
   /* Detail view */
   .detail-ignore { padding: 6px 8px; border-bottom: 1px solid #333; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
@@ -176,7 +181,7 @@
   <div id="detailView" style="display:none">
     <div class="toolbar">
       <button id="backBtn">&lt; Back</button>
-      <span id="detailTitle" style="flex:1; font-size:12px"></span>
+      <span id="detailTitle" style="flex:1; font-size:12px; cursor:pointer" title="Click to rename"></span>
       <span class="count" id="detailCount"></span>
     </div>
     <div class="detail-ignore" id="detailIgnore"></div>

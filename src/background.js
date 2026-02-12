@@ -9,9 +9,8 @@ let recordEntries = [];
 let recordFilters = ["xhr", "fetch"];
 let ignorePatterns = []; // working set, saved with recording on stop
 
-let replaying = false;
-let replayTabId = null;
-let replayRecordingId = null;
+// { recordingId: tabId } — supports multiple simultaneous replays
+let activeReplays = {};
 
 let recordings = [];
 
@@ -78,14 +77,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sniffing,
       requests,
       recording,
-      replaying,
+      replaying: hasActiveReplays(),
       recordings: recordings.map((r) => ({
         id: r.id,
         name: r.name,
         timestamp: r.timestamp,
         count: r.entries.length,
       })),
-      replayRecordingId,
+      activeReplays,
       recordEntries,
       recordFilters,
       ignorePatterns,
@@ -176,33 +175,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ error: "not found" });
       return true;
     }
-    replaying = true;
-    replayRecordingId = msg.recordingId;
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      replayTabId = tabs[0]?.id ?? null;
-      if (replayTabId) sendToTab(replayTabId, "replay", rec.entries);
+      const tabId = tabs[0]?.id ?? null;
+      if (tabId) {
+        activeReplays[msg.recordingId] = tabId;
+        syncReplayToTab(tabId);
+      }
     });
-    sendResponse({ replaying: true });
+    sendResponse({});
     updateIcon();
     return true;
   }
 
   if (msg.type === "stopReplay") {
-    replaying = false;
-    replayRecordingId = null;
-    if (replayTabId) sendToTab(replayTabId, null, []);
-    replayTabId = null;
-    sendResponse({ replaying: false });
+    const tabId = activeReplays[msg.recordingId];
+    delete activeReplays[msg.recordingId];
+    if (tabId) syncReplayToTab(tabId);
+    sendResponse({});
     updateIcon();
     return true;
   }
 
   if (msg.type === "deleteRecording") {
-    if (replaying && replayRecordingId === msg.recordingId) {
-      replaying = false;
-      replayRecordingId = null;
-      if (replayTabId) sendToTab(replayTabId, null, []);
-      replayTabId = null;
+    const tabId = activeReplays[msg.recordingId];
+    if (tabId) {
+      delete activeReplays[msg.recordingId];
+      syncReplayToTab(tabId);
       updateIcon();
     }
     recordings = recordings.filter((r) => r.id !== msg.recordingId);
@@ -278,9 +276,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Bridge init
   if (msg.source === "sniffer-bridge" && msg.type === "init") {
     const tabId = sender.tab?.id;
-    if (replaying && tabId === replayTabId) {
-      const rec = recordings.find((r) => r.id === replayRecordingId);
-      sendResponse({ mode: "replay", entries: rec?.entries || [] });
+    const replayEntries = mergedReplayEntries(tabId);
+    if (replayEntries.length > 0) {
+      sendResponse({ mode: "replay", entries: replayEntries });
     } else if (recording && tabId === recordTabId) {
       sendResponse({ mode: "record", entries: [] });
     } else {
@@ -297,6 +295,29 @@ function sendToTab(tabId, mode, entries) {
     mode,
     entries,
   });
+}
+
+function mergedReplayEntries(tabId) {
+  const entries = [];
+  for (const [recId, tid] of Object.entries(activeReplays)) {
+    if (tid !== tabId) continue;
+    const rec = recordings.find((r) => r.id === recId);
+    if (rec) entries.push(...rec.entries);
+  }
+  return entries;
+}
+
+function syncReplayToTab(tabId) {
+  const entries = mergedReplayEntries(tabId);
+  if (entries.length > 0) {
+    sendToTab(tabId, "replay", entries);
+  } else {
+    sendToTab(tabId, null, []);
+  }
+}
+
+function hasActiveReplays() {
+  return Object.keys(activeReplays).length > 0;
 }
 
 // --- webRequest listeners ---
@@ -366,12 +387,12 @@ async function captureResource(details, cat) {
 function updateIcon() {
   let text = "";
   if (recording) text = "REC";
-  else if (replaying) text = "PLAY";
+  else if (hasActiveReplays()) text = "PLAY";
   else if (sniffing) text = "ON";
 
   let color = "#999";
   if (recording) color = "#e74c3c";
-  else if (replaying) color = "#2ecc71";
+  else if (hasActiveReplays()) color = "#2ecc71";
   else if (sniffing) color = "#e74c3c";
 
   chrome.action.setBadgeText({ text });

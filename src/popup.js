@@ -12,7 +12,6 @@ const requestsEl = document.getElementById("requests");
 const recCountEl = document.getElementById("recCount");
 const recordingsEl = document.getElementById("recordings");
 const backBtn = document.getElementById("backBtn");
-const detailTitle = document.getElementById("detailTitle");
 const detailCount = document.getElementById("detailCount");
 const detailIgnore = document.getElementById("detailIgnore");
 const detailEntries = document.getElementById("detailEntries");
@@ -170,7 +169,7 @@ requestsEl.addEventListener("click", (e) => {
 });
 
 // --- Recordings list ---
-function renderRecordings(recs, replayRecordingId) {
+function renderRecordings(recs, activeReplays) {
   recCountEl.textContent = recs.length ? `(${recs.length})` : "";
   if (recs.length === 0) {
     recordingsEl.innerHTML =
@@ -180,16 +179,19 @@ function renderRecordings(recs, replayRecordingId) {
   recordingsEl.innerHTML = recs
     .toReversed()
     .map(
-      (r) => `
+      (r) => {
+        const isReplaying = r.id in (activeReplays || {});
+        return `
     <div class="rec-item" data-id="${r.id}">
-      <span class="rec-name">${esc(r.name)}</span>
+      <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
       <button class="edit" data-id="${r.id}">Edit</button>
-      <button class="replay ${replayRecordingId === r.id ? "active-replay" : ""}" data-id="${r.id}">
-        ${replayRecordingId === r.id ? "Stop" : "Replay"}
+      <button class="replay ${isReplaying ? "active-replay" : ""}" data-id="${r.id}">
+        ${isReplaying ? "Stop" : "Replay"}
       </button>
       <button class="del" data-id="${r.id}">x</button>
-    </div>`
+    </div>`;
+      }
     )
     .join("");
 }
@@ -225,8 +227,11 @@ function refresh() {
       statusBar.textContent = `RECORDING — ${res.recordEntries.length} requests captured`;
     } else if (res.replaying) {
       statusBar.classList.add("replaying");
-      const rec = res.recordings.find((r) => r.id === res.replayRecordingId);
-      statusBar.textContent = `REPLAYING — ${rec?.name || "recording"}`;
+      const replayIds = Object.keys(res.activeReplays || {});
+      const names = replayIds
+        .map((id) => res.recordings.find((r) => r.id === id)?.name)
+        .filter(Boolean);
+      statusBar.textContent = `REPLAYING — ${names.join(", ") || "recording"}`;
     }
 
     if (res.recording) {
@@ -235,7 +240,7 @@ function refresh() {
       renderRequests(res.requests);
     }
 
-    renderRecordings(res.recordings, res.replayRecordingId);
+    renderRecordings(res.recordings, res.activeReplays);
   });
 }
 
@@ -263,6 +268,31 @@ clearBtn.addEventListener("click", () => {
 });
 
 recordingsEl.addEventListener("click", (e) => {
+  const nameEl = e.target.closest(".rec-name");
+  if (nameEl && !e.target.closest("button")) {
+    const id = nameEl.dataset.id;
+    const current = nameEl.textContent;
+    const input = document.createElement("input");
+    input.className = "rename-input";
+    input.value = current;
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+    const commit = () => {
+      const name = input.value.trim() || current;
+      chrome.runtime.sendMessage(
+        { type: "renameRecording", recordingId: id, name },
+        () => refresh()
+      );
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") commit();
+      if (ev.key === "Escape") refresh();
+    });
+    input.addEventListener("blur", commit);
+    return;
+  }
+
   const btn = e.target.closest("button");
   if (!btn) return;
   const id = btn.dataset.id;
@@ -273,16 +303,17 @@ recordingsEl.addEventListener("click", (e) => {
   }
 
   if (btn.classList.contains("replay")) {
-    chrome.runtime.sendMessage({ type: "getState" }, (res) => {
-      if (res.replayRecordingId === id) {
-        chrome.runtime.sendMessage({ type: "stopReplay" }, () => refresh());
-      } else {
-        chrome.runtime.sendMessage(
-          { type: "startReplay", recordingId: id },
-          () => refresh()
-        );
-      }
-    });
+    if (btn.classList.contains("active-replay")) {
+      chrome.runtime.sendMessage(
+        { type: "stopReplay", recordingId: id },
+        () => refresh()
+      );
+    } else {
+      chrome.runtime.sendMessage(
+        { type: "startReplay", recordingId: id },
+        () => refresh()
+      );
+    }
   }
 
   if (btn.classList.contains("del")) {
@@ -318,7 +349,21 @@ function loadDetail() {
         closeDetail();
         return;
       }
-      detailTitle.textContent = rec.name;
+      const titleEl = detailView.querySelector("#detailTitle");
+      if (titleEl) {
+        titleEl.textContent = rec.name;
+        titleEl.title = "Click to rename";
+      } else {
+        // Re-create if it was replaced by rename input
+        const span = document.createElement("span");
+        span.id = "detailTitle";
+        span.style.cssText = "flex:1; font-size:12px; cursor:pointer";
+        span.title = "Click to rename";
+        span.textContent = rec.name;
+        const toolbar = detailView.querySelector(".toolbar");
+        const renameInput = toolbar.querySelector(".rename-input");
+        if (renameInput) renameInput.replaceWith(span);
+      }
       detailCount.textContent = `${rec.entries.length} req`;
       renderDetailIgnore(rec.ignorePatterns || []);
       renderDetailEntries(rec.entries);
@@ -421,6 +466,32 @@ function renderDetailEntries(entries) {
 }
 
 backBtn.addEventListener("click", closeDetail);
+
+detailView.addEventListener("click", (e) => {
+  const titleEl = e.target.closest("#detailTitle");
+  if (!titleEl) return;
+  const current = titleEl.textContent;
+  const input = document.createElement("input");
+  input.className = "rename-input";
+  input.value = current;
+  input.style.flex = "1";
+  input.style.fontSize = "12px";
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const name = input.value.trim() || current;
+    chrome.runtime.sendMessage(
+      { type: "renameRecording", recordingId: detailRecordingId, name },
+      () => loadDetail()
+    );
+  };
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") commit();
+    if (ev.key === "Escape") loadDetail();
+  });
+  input.addEventListener("blur", commit);
+});
 
 detailEntries.addEventListener("click", (e) => {
   const delEl = e.target.closest(".detail-del");
