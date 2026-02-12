@@ -41,7 +41,17 @@ chrome.storage.local.get(
 );
 
 function isIgnored(url) {
-  return ignorePatterns.some((p) => url.includes(p));
+  return ignorePatterns.some((p) => {
+    if (p.startsWith("/") && p.lastIndexOf("/") > 0) {
+      const end = p.lastIndexOf("/");
+      try {
+        return new RegExp(p.slice(1, end), p.slice(end + 1)).test(url);
+      } catch {
+        return url.includes(p);
+      }
+    }
+    return url.includes(p);
+  });
 }
 
 // --- Message handler ---

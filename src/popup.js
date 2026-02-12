@@ -51,9 +51,9 @@ function cleanUrl(url) {
   }
 }
 
-function getHost(url) {
+function getPath(url) {
   try {
-    return new URL(url).hostname;
+    return new URL(url).pathname;
   } catch {
     return url;
   }
@@ -152,7 +152,7 @@ function renderRequests(items) {
       <span class="type">${r.type || r.kind || ""}</span>
       <span class="url" title="${esc(r.url)}">${esc(cleanUrl(r.url))}</span>
       <span class="status ${statusClass(r.status)}">${r.status || "..."}</span>
-      <span class="req-ignore" data-host="${esc(getHost(r.url))}" title="Ignore ${esc(getHost(r.url))}">ban</span>
+      <span class="req-ignore" data-path="${esc(getPath(r.url))}" title="Ignore ${esc(getPath(r.url))}">ban</span>
     </div>`
     )
     .join("");
@@ -161,9 +161,9 @@ function renderRequests(items) {
 requestsEl.addEventListener("click", (e) => {
   const ban = e.target.closest(".req-ignore");
   if (!ban) return;
-  const host = ban.dataset.host;
-  if (!host) return;
-  chrome.runtime.sendMessage({ type: "addIgnore", pattern: host }, (res) => {
+  const path = ban.dataset.path;
+  if (!path) return;
+  chrome.runtime.sendMessage({ type: "addIgnore", pattern: path }, (res) => {
     if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
     renderIgnoreBar();
   });
