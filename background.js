@@ -160,6 +160,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "deleteRecording") {
+    if (replaying && replayRecordingId === msg.recordingId) {
+      replaying = false;
+      replayRecordingId = null;
+      if (replayTabId) sendToTab(replayTabId, null, []);
+      replayTabId = null;
+      updateIcon();
+    }
     recordings = recordings.filter((r) => r.id !== msg.recordingId);
     chrome.storage.local.set({ recordings });
     sendResponse({});
