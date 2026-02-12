@@ -15,9 +15,12 @@ const detailTitle = document.getElementById("detailTitle");
 const detailCount = document.getElementById("detailCount");
 const detailEntries = document.getElementById("detailEntries");
 
+const ignoreBar = document.getElementById("ignoreBar");
+
 // --- State ---
 const ALL_TYPES = ["xhr", "fetch", "script", "css", "img", "font", "doc", "other"];
 let activeFilters = ["xhr", "fetch"];
+let ignorePatterns = [];
 let currentView = "main"; // 'main' | 'detail'
 let detailRecordingId = null;
 let expandedEntry = -1;
@@ -74,6 +77,42 @@ filtersEl.addEventListener("click", (e) => {
   chrome.runtime.sendMessage({ type: "setFilters", filters: activeFilters });
 });
 
+// --- Ignore patterns ---
+function renderIgnorePatterns() {
+  const tags = ignorePatterns
+    .map(
+      (p) =>
+        `<span class="ignore-tag" data-pattern="${esc(p)}">${esc(p)} <span class="remove">x</span></span>`
+    )
+    .join("");
+  ignoreBar.innerHTML = tags + `<input id="ignoreInput" placeholder="Ignore pattern... (Enter to add)">`;
+  const input = document.getElementById("ignoreInput");
+  input.addEventListener("keydown", onIgnoreKey);
+}
+
+function onIgnoreKey(e) {
+  if (e.key !== "Enter") return;
+  const val = e.target.value.trim();
+  if (!val) return;
+  e.target.value = "";
+  chrome.runtime.sendMessage({ type: "addIgnore", pattern: val }, (res) => {
+    if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
+    renderIgnorePatterns();
+  });
+}
+
+ignoreBar.addEventListener("click", (e) => {
+  const rm = e.target.closest(".remove");
+  if (!rm) return;
+  const tag = rm.closest(".ignore-tag");
+  const pattern = tag?.dataset.pattern;
+  if (!pattern) return;
+  chrome.runtime.sendMessage({ type: "removeIgnore", pattern }, (res) => {
+    if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
+    renderIgnorePatterns();
+  });
+});
+
 // --- Main view rendering ---
 function renderRequests(items) {
   countEl.textContent = `${items.length} req`;
@@ -126,6 +165,11 @@ function refresh() {
 
     activeFilters = res.recordFilters || activeFilters;
     renderFilters();
+
+    if (JSON.stringify(ignorePatterns) !== JSON.stringify(res.ignorePatterns || [])) {
+      ignorePatterns = res.ignorePatterns || [];
+      renderIgnorePatterns();
+    }
 
     toggleBtn.classList.toggle("active", res.sniffing);
     toggleBtn.textContent = res.sniffing ? "Stop" : "Sniff";
