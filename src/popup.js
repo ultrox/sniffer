@@ -16,6 +16,7 @@ const detailCount = document.getElementById("detailCount");
 const detailPathFilter = document.getElementById("detailPathFilter");
 const detailBodyFilter = document.getElementById("detailBodyFilter");
 const detailEntries = document.getElementById("detailEntries");
+const detailReplayBtn = document.getElementById("detailReplayBtn");
 
 // --- State ---
 const ALL_TYPES = [
@@ -397,6 +398,15 @@ function closeDetail() {
   refresh();
 }
 
+function updateDetailReplayBtn() {
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res) return;
+    const isReplaying = detailRecordingId in (res.activeReplays || {});
+    detailReplayBtn.textContent = isReplaying ? "Stop" : "Replay";
+    detailReplayBtn.classList.toggle("active-replay", isReplaying);
+  });
+}
+
 function loadDetail() {
   chrome.runtime.sendMessage(
     { type: "getRecording", recordingId: detailRecordingId },
@@ -425,6 +435,7 @@ function loadDetail() {
       detailPathFilter.value = "";
       detailBodyFilter.value = "";
       renderDetailEntries(rec.entries);
+      updateDetailReplayBtn();
     }
   );
 }
@@ -508,6 +519,15 @@ function renderDetailEntries(entries) {
 }
 
 backBtn.addEventListener("click", closeDetail);
+
+detailReplayBtn.addEventListener("click", () => {
+  const isReplaying = detailReplayBtn.classList.contains("active-replay");
+  const msgType = isReplaying ? "stopReplay" : "startReplay";
+  chrome.runtime.sendMessage(
+    { type: msgType, recordingId: detailRecordingId },
+    () => updateDetailReplayBtn()
+  );
+});
 
 detailView.addEventListener("click", (e) => {
   const titleEl = e.target.closest("#detailTitle");
