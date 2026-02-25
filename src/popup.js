@@ -35,6 +35,7 @@ let currentView = "main";
 let detailRecordingId = null;
 let expandedEntry = -1;
 let isRenaming = false;
+let isMerging = false;
 
 // --- Helpers ---
 function statusClass(code) {
@@ -241,6 +242,7 @@ function renderRecordings(recs, activeReplays) {
       <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
       <button class="edit" data-id="${r.id}">Edit</button>
+      <button class="merge" data-id="${r.id}">Merge</button>
       <button class="replay ${isReplaying ? "active-replay" : ""}" data-id="${r.id}">
         ${isReplaying ? "Stop" : "Replay"}
       </button>
@@ -295,7 +297,7 @@ function refresh() {
       renderRequests(res.requests);
     }
 
-    if (!isRenaming) renderRecordings(res.recordings, res.activeReplays);
+    if (!isRenaming && !isMerging) renderRecordings(res.recordings, res.activeReplays);
   });
 }
 
@@ -373,6 +375,11 @@ recordingsEl.addEventListener("click", (e) => {
     }
   }
 
+  if (btn.classList.contains("merge")) {
+    showMergePicker(id);
+    return;
+  }
+
   if (btn.classList.contains("del")) {
     chrome.runtime.sendMessage(
       { type: "deleteRecording", recordingId: id },
@@ -380,6 +387,60 @@ recordingsEl.addEventListener("click", (e) => {
     );
   }
 });
+
+// --- Merge picker ---
+function showMergePicker(sourceId) {
+  const row = recordingsEl.querySelector(`.rec-item[data-id="${sourceId}"]`);
+  if (!row) return;
+  const existing = recordingsEl.querySelector(".merge-picker");
+  if (existing) { existing.remove(); isMerging = false; }
+
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res) return;
+    const targets = res.recordings.filter((r) => r.id !== sourceId);
+    if (targets.length === 0) return;
+
+    isMerging = true;
+    const picker = document.createElement("div");
+    picker.className = "merge-picker";
+    picker.innerHTML =
+      `<span class="merge-label">Merge into:</span>` +
+      targets
+        .map(
+          (r) =>
+            `<button class="merge-target" data-id="${r.id}">${esc(r.name)}</button>`
+        )
+        .join("") +
+      `<button class="merge-cancel">Esc</button>`;
+    row.after(picker);
+
+    const closePicker = () => {
+      picker.remove();
+      isMerging = false;
+      document.removeEventListener("keydown", onKey);
+    };
+
+    picker.addEventListener("click", (e) => {
+      const target = e.target.closest(".merge-target");
+      if (target) {
+        chrome.runtime.sendMessage(
+          { type: "mergeRecording", sourceId, targetId: target.dataset.id },
+          () => {
+            closePicker();
+            refresh();
+          }
+        );
+        return;
+      }
+      if (e.target.closest(".merge-cancel")) closePicker();
+    });
+
+    const onKey = (e) => {
+      if (e.key === "Escape") closePicker();
+    };
+    document.addEventListener("keydown", onKey);
+  });
+}
 
 // --- Detail view ---
 function openDetail(recordingId) {

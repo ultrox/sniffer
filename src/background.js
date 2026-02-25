@@ -213,6 +213,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "mergeRecording") {
+    const source = recordings.find((r) => r.id === msg.sourceId);
+    const target = recordings.find((r) => r.id === msg.targetId);
+    if (source && target) {
+      target.entries.push(...source.entries);
+      recordings = recordings.filter((r) => r.id !== msg.sourceId);
+      chrome.storage.local.set({ recordings });
+    }
+    sendResponse({});
+    return true;
+  }
+
   if (msg.type === "renameRecording") {
     const rec = recordings.find((r) => r.id === msg.recordingId);
     if (rec) {
