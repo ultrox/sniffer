@@ -32,6 +32,7 @@ let ignorePatterns = [];
 let currentView = "main";
 let detailRecordingId = null;
 let expandedEntry = -1;
+let isRenaming = false;
 
 // --- Helpers ---
 function statusClass(code) {
@@ -240,7 +241,7 @@ function refresh() {
       renderRequests(res.requests);
     }
 
-    renderRecordings(res.recordings, res.activeReplays);
+    if (!isRenaming) renderRecordings(res.recordings, res.activeReplays);
   });
 }
 
@@ -275,10 +276,12 @@ recordingsEl.addEventListener("click", (e) => {
     const input = document.createElement("input");
     input.className = "rename-input";
     input.value = current;
+    isRenaming = true;
     nameEl.replaceWith(input);
     input.focus();
     input.select();
     const commit = () => {
+      isRenaming = false;
       const name = input.value.trim() || current;
       chrome.runtime.sendMessage(
         { type: "renameRecording", recordingId: id, name },
@@ -287,7 +290,7 @@ recordingsEl.addEventListener("click", (e) => {
     };
     input.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") commit();
-      if (ev.key === "Escape") refresh();
+      if (ev.key === "Escape") { isRenaming = false; refresh(); }
     });
     input.addEventListener("blur", commit);
     return;
