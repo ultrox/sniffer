@@ -140,15 +140,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "stopRecord") {
     recording = false;
-    const rec = {
-      id: Date.now().toString(),
-      name: `Recording ${recordings.length + 1}`,
-      timestamp: Date.now(),
-      ignorePatterns: [...ignorePatterns],
-      entries: recordEntries,
-    };
-    recordings.push(rec);
-    chrome.storage.local.set({ recordings });
+    if (recordEntries.length > 0) {
+      const rec = {
+        id: Date.now().toString(),
+        name: `Recording ${recordings.length + 1}`,
+        timestamp: Date.now(),
+        ignorePatterns: [...ignorePatterns],
+        entries: recordEntries,
+      };
+      recordings.push(rec);
+      chrome.storage.local.set({ recordings });
+    }
     recordEntries = [];
     if (recordTabId) sendToTab(recordTabId, null, []);
     recordTabId = null;
