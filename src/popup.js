@@ -225,14 +225,14 @@ function refresh() {
     statusBar.className = "status-bar";
     if (res.recording) {
       statusBar.classList.add("recording");
-      statusBar.textContent = `RECORDING — ${res.recordEntries.length} requests captured`;
+      statusBar.textContent = `RECORDING - ${res.recordEntries.length} requests captured`;
     } else if (res.replaying) {
       statusBar.classList.add("replaying");
       const replayIds = Object.keys(res.activeReplays || {});
       const names = replayIds
         .map((id) => res.recordings.find((r) => r.id === id)?.name)
         .filter(Boolean);
-      statusBar.textContent = `REPLAYING — ${names.join(", ") || "recording"}`;
+      statusBar.textContent = `REPLAYING - ${names.join(", ") || "recording"}`;
     }
 
     if (res.recording) {

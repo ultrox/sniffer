@@ -36,6 +36,7 @@ chrome.storage.local.get(
     recordings = res.recordings || [];
     if (res.recordFilters) recordFilters = res.recordFilters;
     if (res.ignorePatterns) ignorePatterns = res.ignorePatterns;
+    updateIcon();
   }
 );
 
