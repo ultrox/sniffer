@@ -60,6 +60,57 @@ function getPath(url) {
   }
 }
 
+function isFormEncoded(str) {
+  if (!str || str.startsWith("{") || str.startsWith("[")) return false;
+  return str.includes("=") && !str.includes("\n");
+}
+
+function renderPayload(payload) {
+  if (!payload) return "";
+  if (isFormEncoded(payload)) {
+    const params = new URLSearchParams(payload);
+    const fields = [...params.entries()]
+      .map(
+        ([k, v]) =>
+          `<div class="payload-field">
+            <label>${esc(k)}
+              <input name="payload-field" data-key="${esc(k)}" value="${esc(v)}">
+            </label>
+          </div>`
+      )
+      .join("");
+    return `<div class="payload-section collapsed">
+      <div class="payload-header">
+        <span class="payload-toggle">Payload (${params.size} params)</span>
+        <button class="payload-mode" data-mode="parsed">Raw</button>
+      </div>
+      <div class="payload-body">
+        <div class="payload-parsed">${fields}</div>
+        <textarea class="payload-raw" name="payload" style="display:none">${esc(payload)}</textarea>
+      </div>
+    </div>`;
+  }
+  return `<label>Request payload
+    <textarea name="payload">${esc(payload)}</textarea>
+  </label>`;
+}
+
+function collectPayload(form) {
+  const section = form.querySelector(".payload-section");
+  if (section) {
+    const rawEl = section.querySelector(".payload-raw");
+    if (rawEl && rawEl.style.display !== "none") return rawEl.value;
+    const fields = section.querySelectorAll('[name="payload-field"]');
+    if (fields.length > 0) {
+      const params = new URLSearchParams();
+      fields.forEach((f) => params.set(f.dataset.key, f.value));
+      return params.toString();
+    }
+  }
+  const textarea = form.querySelector('[name="payload"]');
+  return textarea ? textarea.value : null;
+}
+
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s;
@@ -439,9 +490,7 @@ function renderDetailEntries(entries) {
               <input name="kind" value="${esc(e.kind || "")}">
             </label>
           </div>
-          ${e.payload ? `<label>Request payload
-            <textarea name="payload">${esc(e.payload)}</textarea>
-          </label>` : ""}
+          ${renderPayload(e.payload)}
           <label>Response body
             <textarea name="body">${esc(e.body || "")}</textarea>
           </label>
@@ -486,6 +535,45 @@ detailView.addEventListener("click", (e) => {
 });
 
 detailEntries.addEventListener("click", (e) => {
+  const toggle = e.target.closest(".payload-toggle");
+  if (toggle) {
+    const section = toggle.closest(".payload-section");
+    section.classList.toggle("collapsed");
+    return;
+  }
+
+  const modeBtn = e.target.closest(".payload-mode");
+  if (modeBtn) {
+    const section = modeBtn.closest(".payload-section");
+    const parsed = section.querySelector(".payload-parsed");
+    const raw = section.querySelector(".payload-raw");
+    if (modeBtn.dataset.mode === "parsed") {
+      // Sync fields to raw before switching
+      const fields = parsed.querySelectorAll('[name="payload-field"]');
+      const params = new URLSearchParams();
+      fields.forEach((f) => params.set(f.dataset.key, f.value));
+      raw.value = params.toString();
+      parsed.style.display = "none";
+      raw.style.display = "";
+      modeBtn.dataset.mode = "raw";
+      modeBtn.textContent = "Parsed";
+    } else {
+      // Sync raw to fields before switching
+      try {
+        const params = new URLSearchParams(raw.value);
+        const fields = parsed.querySelectorAll('[name="payload-field"]');
+        fields.forEach((f) => {
+          if (params.has(f.dataset.key)) f.value = params.get(f.dataset.key);
+        });
+      } catch {}
+      raw.style.display = "none";
+      parsed.style.display = "";
+      modeBtn.dataset.mode = "parsed";
+      modeBtn.textContent = "Raw";
+    }
+    return;
+  }
+
   const delEl = e.target.closest(".detail-del");
   if (delEl) {
     const idx = parseInt(delEl.dataset.index);
@@ -505,7 +593,7 @@ detailEntries.addEventListener("click", (e) => {
     const form = detailEntries.querySelector(
       `.edit-form[data-index="${idx}"]`
     );
-    const payloadEl = form.querySelector('[name="payload"]');
+    const payload = collectPayload(form);
     const updates = {
       url: form.querySelector('[name="url"]').value,
       method: form.querySelector('[name="method"]').value,
@@ -513,7 +601,7 @@ detailEntries.addEventListener("click", (e) => {
       kind: form.querySelector('[name="kind"]').value,
       body: form.querySelector('[name="body"]').value,
     };
-    if (payloadEl) updates.payload = payloadEl.value;
+    if (payload !== null) updates.payload = payload;
     chrome.runtime.sendMessage(
       {
         type: "updateEntry",
