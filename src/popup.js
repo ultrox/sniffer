@@ -13,7 +13,8 @@ const recCountEl = document.getElementById("recCount");
 const recordingsEl = document.getElementById("recordings");
 const backBtn = document.getElementById("backBtn");
 const detailCount = document.getElementById("detailCount");
-const detailSearchInput = document.getElementById("detailSearchInput");
+const detailPathFilter = document.getElementById("detailPathFilter");
+const detailBodyFilter = document.getElementById("detailBodyFilter");
 const detailEntries = document.getElementById("detailEntries");
 
 // --- State ---
@@ -369,7 +370,8 @@ function loadDetail() {
       }
       detailCount.textContent = `${rec.entries.length} req`;
       detailAllEntries = rec.entries;
-      detailSearchInput.value = "";
+      detailPathFilter.value = "";
+      detailBodyFilter.value = "";
       renderDetailEntries(rec.entries);
     }
   );
@@ -377,20 +379,23 @@ function loadDetail() {
 
 let detailAllEntries = [];
 
-detailSearchInput.addEventListener("input", () => {
-  const q = detailSearchInput.value.trim().toLowerCase();
-  if (!q) {
+function applyDetailFilters() {
+  const pathQ = detailPathFilter.value.trim().toLowerCase();
+  const bodyQ = detailBodyFilter.value.trim().toLowerCase();
+  if (!pathQ && !bodyQ) {
     renderDetailEntries(detailAllEntries);
     return;
   }
-  const filtered = detailAllEntries.filter(
-    (e) =>
-      e.url.toLowerCase().includes(q) ||
-      (e.method || "").toLowerCase().includes(q) ||
-      (e.kind || "").toLowerCase().includes(q)
-  );
+  const filtered = detailAllEntries.filter((e) => {
+    if (pathQ && !e.url.toLowerCase().includes(pathQ)) return false;
+    if (bodyQ && !(e.body || "").toLowerCase().includes(bodyQ)) return false;
+    return true;
+  });
   renderDetailEntries(filtered);
-});
+}
+
+detailPathFilter.addEventListener("input", applyDetailFilters);
+detailBodyFilter.addEventListener("input", applyDetailFilters);
 
 function renderDetailEntries(entries) {
   if (entries.length === 0) {
@@ -434,6 +439,9 @@ function renderDetailEntries(entries) {
               <input name="kind" value="${esc(e.kind || "")}">
             </label>
           </div>
+          ${e.payload ? `<label>Request payload
+            <textarea name="payload">${esc(e.payload)}</textarea>
+          </label>` : ""}
           <label>Response body
             <textarea name="body">${esc(e.body || "")}</textarea>
           </label>
@@ -497,6 +505,7 @@ detailEntries.addEventListener("click", (e) => {
     const form = detailEntries.querySelector(
       `.edit-form[data-index="${idx}"]`
     );
+    const payloadEl = form.querySelector('[name="payload"]');
     const updates = {
       url: form.querySelector('[name="url"]').value,
       method: form.querySelector('[name="method"]').value,
@@ -504,6 +513,7 @@ detailEntries.addEventListener("click", (e) => {
       kind: form.querySelector('[name="kind"]').value,
       body: form.querySelector('[name="body"]').value,
     };
+    if (payloadEl) updates.payload = payloadEl.value;
     chrome.runtime.sendMessage(
       {
         type: "updateEntry",

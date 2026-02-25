@@ -82,6 +82,10 @@
         const clone = response.clone();
         try {
           const body = await clone.text();
+          let payload = null;
+          try {
+            payload = await req.clone().text();
+          } catch {}
           post({
             type: "captured",
             entry: {
@@ -91,6 +95,7 @@
               statusText: response.statusText,
               headers: Object.fromEntries(response.headers.entries()),
               body,
+              payload: payload || undefined,
               kind: "fetch",
               time: Date.now(),
             },
@@ -138,6 +143,7 @@
     }
 
     if (mode === "record") {
+      const payload = body || undefined;
       this.addEventListener("load", () => {
         const ct = this.getResponseHeader("content-type") || "";
         if (SKIP_CONTENT_TYPES.test(ct)) return;
@@ -150,6 +156,7 @@
               status: this.status,
               statusText: this.statusText,
               body: this.responseText,
+              payload,
               kind: "xhr",
               time: Date.now(),
             },
