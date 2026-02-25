@@ -115,12 +115,13 @@
   }
 
   /* Detail view */
-  .detail-ignore { padding: 6px 8px; border-bottom: 1px solid #333; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-  .detail-ignore input {
-    flex: 1; min-width: 80px; padding: 2px 6px;
+  .detail-search { padding: 6px 8px; border-bottom: 1px solid #333; }
+  .detail-search input {
+    width: 100%; padding: 4px 8px;
     background: #2a2a3e; border: 1px solid #444; border-radius: 4px;
     color: #e0e0e0; font: 11px monospace; outline: none;
   }
+  .detail-search input:focus { border-color: #7a7aaa; }
   .detail-entries { overflow-y: auto; max-height: 420px; }
   .detail-entry {
     border-bottom: 1px solid #222; cursor: pointer;
@@ -184,7 +185,9 @@
       <span id="detailTitle" style="flex:1; font-size:12px; cursor:pointer" title="Click to rename"></span>
       <span class="count" id="detailCount"></span>
     </div>
-    <div class="detail-ignore" id="detailIgnore"></div>
+    <div class="detail-search" id="detailSearch">
+      <input id="detailSearchInput" placeholder="Filter requests...">
+    </div>
     <div class="detail-entries" id="detailEntries"></div>
   </div>
 

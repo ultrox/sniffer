@@ -13,7 +13,7 @@ const recCountEl = document.getElementById("recCount");
 const recordingsEl = document.getElementById("recordings");
 const backBtn = document.getElementById("backBtn");
 const detailCount = document.getElementById("detailCount");
-const detailIgnore = document.getElementById("detailIgnore");
+const detailSearchInput = document.getElementById("detailSearchInput");
 const detailEntries = document.getElementById("detailEntries");
 
 // --- State ---
@@ -368,47 +368,28 @@ function loadDetail() {
         if (renameInput) renameInput.replaceWith(span);
       }
       detailCount.textContent = `${rec.entries.length} req`;
-      renderDetailIgnore(rec.ignorePatterns || []);
+      detailAllEntries = rec.entries;
+      detailSearchInput.value = "";
       renderDetailEntries(rec.entries);
     }
   );
 }
 
-function renderDetailIgnore(patterns) {
-  detailIgnore.innerHTML =
-    renderIgnoreTags(patterns) +
-    `<input id="detailIgnoreInput" placeholder="Add ignore pattern...">`;
-  document
-    .getElementById("detailIgnoreInput")
-    .addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const val = e.target.value.trim();
-      if (!val) return;
-      e.target.value = "";
-      chrome.runtime.sendMessage(
-        {
-          type: "addRecordingIgnore",
-          recordingId: detailRecordingId,
-          pattern: val,
-        },
-        () => loadDetail()
-      );
-    });
-}
+let detailAllEntries = [];
 
-detailIgnore.addEventListener("click", (e) => {
-  const rm = e.target.closest(".remove");
-  if (!rm) return;
-  const pattern = rm.closest(".ignore-tag")?.dataset.pattern;
-  if (!pattern) return;
-  chrome.runtime.sendMessage(
-    {
-      type: "removeRecordingIgnore",
-      recordingId: detailRecordingId,
-      pattern,
-    },
-    () => loadDetail()
+detailSearchInput.addEventListener("input", () => {
+  const q = detailSearchInput.value.trim().toLowerCase();
+  if (!q) {
+    renderDetailEntries(detailAllEntries);
+    return;
+  }
+  const filtered = detailAllEntries.filter(
+    (e) =>
+      e.url.toLowerCase().includes(q) ||
+      (e.method || "").toLowerCase().includes(q) ||
+      (e.kind || "").toLowerCase().includes(q)
   );
+  renderDetailEntries(filtered);
 });
 
 function renderDetailEntries(entries) {
