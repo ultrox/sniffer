@@ -166,6 +166,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const cat = msg.entry.kind;
       if (recordFilters.includes(cat)) {
         recordEntries.push(msg.entry);
+        updateIcon();
       }
     }
     return false;
@@ -385,11 +386,12 @@ async function captureResource(details, cat) {
   } catch {}
 
   recordEntries.push(entry);
+  updateIcon();
 }
 
 function updateIcon() {
   let text = "";
-  if (recording) text = "REC";
+  if (recording) text = `${recordEntries.length}`;
   else if (hasActiveReplays()) text = "PLAY";
   else if (sniffing) text = "ON";
 
