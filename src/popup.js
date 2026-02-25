@@ -70,6 +70,7 @@ function renderPayload(payload) {
   if (isFormEncoded(payload)) {
     const params = new URLSearchParams(payload);
     const fields = [...params.entries()]
+      .sort((a, b) => (b[1] ? 1 : 0) - (a[1] ? 1 : 0))
       .map(
         ([k, v]) =>
           `<div class="payload-field">
