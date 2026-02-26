@@ -5,6 +5,7 @@ let targetTabId = null;
 
 let recording = false;
 let recordTabId = null;
+let recordSourceUrl = null;
 let recordEntries = [];
 let recordFilters = ["xhr", "fetch"];
 let ignorePatterns = []; // working set, saved with recording on stop
@@ -83,6 +84,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         id: r.id,
         name: r.name,
         timestamp: r.timestamp,
+        sourceUrl: r.sourceUrl,
         count: r.entries.length,
       })),
       activeReplays,
@@ -131,6 +133,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.set({ recordFilters });
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       recordTabId = tabs[0]?.id ?? null;
+      recordSourceUrl = tabs[0]?.url ?? null;
       if (recordTabId) sendToTab(recordTabId, "record", []);
     });
     sendResponse({ recording: true });
@@ -145,6 +148,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         id: Date.now().toString(),
         name: `Recording ${recordings.length + 1}`,
         timestamp: Date.now(),
+        sourceUrl: recordSourceUrl,
         ignorePatterns: [...ignorePatterns],
         entries: recordEntries,
       };
@@ -185,9 +189,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         activeReplays[msg.recordingId] = tabId;
         syncReplayToTab(tabId);
       }
+      updateIcon();
     });
     sendResponse({});
-    updateIcon();
     return true;
   }
 

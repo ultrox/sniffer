@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Berries — Sniffer Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
+    nav { display: flex; gap: 8px; margin-bottom: 24px; font-size: 13px; }
+    nav a { color: #3b82f6; text-decoration: none; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; }
+    nav a:hover { background: #f0f4ff; }
+    nav a.current { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    h2 { margin-bottom: 16px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; font-size: 13px; }
+    .controls label { color: #555; }
+    .controls select, .controls input {
+      padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;
+    }
+    .controls button {
+      padding: 6px 16px; border: 1px solid #3b82f6; border-radius: 8px;
+      background: #3b82f6; color: #fff; cursor: pointer; font-size: 13px;
+    }
+    .controls button:hover { background: #2563eb; }
+    .card {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+      background: #fff; min-height: 200px;
+    }
+    .card.loading { opacity: 0.5; }
+    .berry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .berry-card {
+      padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fafafa;
+    }
+    .berry-card h4 { text-transform: capitalize; margin-bottom: 6px; }
+    .berry-card .detail { font-size: 12px; color: #666; }
+    .berry-card .flavor { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+    .pager { display: flex; gap: 8px; margin-top: 16px; justify-content: center; }
+    .pager button {
+      padding: 4px 12px; border: 1px solid #ddd; border-radius: 6px;
+      background: #fff; cursor: pointer; font-size: 13px;
+    }
+    .pager button:hover { background: #f0f0f0; }
+    .pager button:disabled { opacity: 0.4; cursor: default; }
+    .raw { margin-top: 16px; }
+    .raw summary { cursor: pointer; font-size: 13px; color: #888; }
+    .raw pre {
+      margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px;
+      font-size: 11px; max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .placeholder { color: #aaa; text-align: center; padding: 60px 0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="../test.html">Home</a>
+    <a href="starters.html">Starters</a>
+    <a href="legendaries.html">Legendaries</a>
+    <a href="berries.html" class="current">Berries</a>
+    <a href="items.html">Items</a>
+  </nav>
+
+  <h2>Berry Browser</h2>
+  <div class="controls">
+    <label>Per page:</label>
+    <select id="limit">
+      <option value="5" selected>5</option>
+      <option value="10">10</option>
+      <option value="20">20</option>
+    </select>
+    <button id="fetchBtn">Fetch</button>
+    <span id="info" style="color:#888"></span>
+  </div>
+  <div class="card" id="card">
+    <div class="placeholder">Hit Fetch to load berries</div>
+  </div>
+
+  <script>
+    const flavorColors = {
+      spicy: "#ef4444", dry: "#a16207", sweet: "#ec4899", bitter: "#16a34a", sour: "#eab308",
+    };
+
+    const card = document.getElementById("card");
+    const info = document.getElementById("info");
+    let offset = 0;
+
+    document.getElementById("fetchBtn").onclick = () => { offset = 0; load(); };
+
+    async function load() {
+      const limit = document.getElementById("limit").value;
+      card.classList.add("loading");
+
+      const listRes = await fetch(`https://pokeapi.co/api/v2/berry?limit=${limit}&offset=${offset}`);
+      const list = await listRes.json();
+
+      // Fetch each berry's detail for richer data
+      const details = await Promise.all(
+        list.results.map(b => fetch(b.url).then(r => r.json()))
+      );
+
+      card.classList.remove("loading");
+      info.textContent = `Showing ${offset + 1}–${offset + details.length} of ${list.count}`;
+
+      const topFlavor = (b) => {
+        const f = b.flavors?.reduce((best, cur) => cur.potency > best.potency ? cur : best, { potency: 0 });
+        return f?.flavor?.name || "";
+      };
+
+      card.innerHTML = `
+        <div class="berry-grid">
+          ${details.map(b => {
+            const flavor = topFlavor(b);
+            return `
+              <div class="berry-card">
+                <h4>${b.name} berry</h4>
+                <div class="detail">Growth: ${b.growth_time}h · Size: ${b.size}mm</div>
+                <div class="detail">Firmness: ${b.firmness?.name || "?"}</div>
+                ${flavor ? `<span class="flavor" style="background:${flavorColors[flavor] || '#888'}22;color:${flavorColors[flavor] || '#888'}">${flavor}</span>` : ""}
+              </div>`;
+          }).join("")}
+        </div>
+        <div class="pager">
+          <button ${!list.previous ? "disabled" : ""} onclick="offset -= ${limit}; load()">← Prev</button>
+          <button ${!list.next ? "disabled" : ""} onclick="offset += ${+limit}; load()">Next →</button>
+        </div>
+        <details class="raw"><summary>Raw list response</summary><pre>${JSON.stringify(list, null, 2)}</pre></details>
+      `;
+    }
+  </script>
+</body>
+</html>

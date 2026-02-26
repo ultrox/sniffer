@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Legendaries — Sniffer Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
+    nav { display: flex; gap: 8px; margin-bottom: 24px; font-size: 13px; }
+    nav a { color: #3b82f6; text-decoration: none; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; }
+    nav a:hover { background: #f0f4ff; }
+    nav a.current { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    h2 { margin-bottom: 16px; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .buttons button {
+      padding: 8px 16px; border: 1px solid #ddd; border-radius: 8px;
+      background: #fff; cursor: pointer; font-size: 14px; transition: all 0.15s;
+    }
+    .buttons button:hover { background: #f0f0f0; border-color: #aaa; }
+    .buttons button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .card {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+      background: #fff; min-height: 200px;
+    }
+    .card.loading { opacity: 0.5; }
+    .pokemon { display: flex; gap: 24px; align-items: flex-start; }
+    .pokemon img { width: 160px; height: 160px; image-rendering: pixelated; }
+    .pokemon .info { flex: 1; }
+    .pokemon h3 { font-size: 24px; margin-bottom: 4px; text-transform: capitalize; }
+    .pokemon .id { color: #888; font-size: 14px; margin-bottom: 12px; }
+    .pokemon .types { display: flex; gap: 6px; margin-bottom: 12px; }
+    .pokemon .type {
+      padding: 3px 10px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; color: #fff; text-transform: capitalize;
+    }
+    .stats { display: grid; grid-template-columns: 100px 1fr 40px; gap: 6px; align-items: center; font-size: 13px; }
+    .stats .bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+    .stats .bar-fill { height: 100%; border-radius: 4px; background: #e74c3c; transition: width 0.3s; }
+    .abilities { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ability {
+      padding: 3px 10px; border-radius: 12px; font-size: 12px;
+      background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+    }
+    .raw { margin-top: 16px; }
+    .raw summary { cursor: pointer; font-size: 13px; color: #888; }
+    .raw pre {
+      margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px;
+      font-size: 11px; max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .placeholder { color: #aaa; text-align: center; padding: 60px 0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="../test.html">Home</a>
+    <a href="starters.html">Starters</a>
+    <a href="legendaries.html" class="current">Legendaries</a>
+    <a href="berries.html">Berries</a>
+    <a href="items.html">Items</a>
+  </nav>
+
+  <h2>Legendary Pokémon</h2>
+  <div class="buttons" id="buttons"></div>
+  <div class="card" id="card">
+    <div class="placeholder">Pick a legendary</div>
+  </div>
+
+  <script>
+    const pokemon = [
+      { id: 144, name: "Articuno" },
+      { id: 145, name: "Zapdos" },
+      { id: 146, name: "Moltres" },
+      { id: 150, name: "Mewtwo" },
+      { id: 151, name: "Mew" },
+      { id: 249, name: "Lugia" },
+      { id: 250, name: "Ho-Oh" },
+      { id: 384, name: "Rayquaza" },
+    ];
+
+    const typeColors = {
+      normal: "#a8a878", fire: "#f08030", water: "#6890f0", grass: "#78c850",
+      electric: "#f8d030", ice: "#98d8d8", fighting: "#c03028", poison: "#a040a0",
+      ground: "#e0c068", flying: "#a890f0", psychic: "#f85888", bug: "#a8b820",
+      rock: "#b8a038", ghost: "#705898", dragon: "#7038f8", dark: "#705848",
+      steel: "#b8b8d0", fairy: "#ee99ac",
+    };
+
+    const buttons = document.getElementById("buttons");
+    const card = document.getElementById("card");
+
+    pokemon.forEach(p => {
+      const btn = document.createElement("button");
+      btn.textContent = p.name;
+      btn.onclick = () => go(p.id, btn);
+      buttons.appendChild(btn);
+    });
+
+    async function go(id, btn) {
+      buttons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+      card.classList.add("loading");
+      card.innerHTML = '<div class="placeholder">Loading...</div>';
+
+      const [pokeRes, speciesRes] = await Promise.all([
+        fetch(`https://pokeapi.co/api/v2/pokemon/${id}`),
+        fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`),
+      ]);
+      const d = await pokeRes.json();
+      const species = await speciesRes.json();
+      card.classList.remove("loading");
+
+      const sprite = d.sprites?.front_default || "";
+      const types = d.types?.map(t => t.type.name) || [];
+      const stats = d.stats || [];
+      const abilities = d.abilities?.map(a => a.ability.name) || [];
+      const flavor = species.flavor_text_entries?.find(e => e.language.name === "en")?.flavor_text?.replace(/[\n\f]/g, " ") || "";
+
+      card.innerHTML = `
+        <div class="pokemon">
+          ${sprite ? `<img src="${sprite}" alt="${d.name}">` : ""}
+          <div class="info">
+            <h3>${d.name}</h3>
+            <div class="id">#${String(d.id).padStart(3, "0")} — ${species.genera?.find(g => g.language.name === "en")?.genus || ""}</div>
+            <div class="types">
+              ${types.map(t => `<span class="type" style="background:${typeColors[t] || '#888'}">${t}</span>`).join("")}
+            </div>
+            <div class="abilities">
+              ${abilities.map(a => `<span class="ability">${a}</span>`).join("")}
+            </div>
+            <p style="font-size:13px;color:#555;margin-bottom:12px">${flavor}</p>
+            <div class="stats">
+              ${stats.map(s => `
+                <span>${s.stat.name.replace("special-", "sp. ")}</span>
+                <div class="bar"><div class="bar-fill" style="width:${Math.min(100, s.base_stat / 2.55)}%"></div></div>
+                <span>${s.base_stat}</span>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+        <details class="raw"><summary>Raw response</summary><pre>${JSON.stringify(d, null, 2)}</pre></details>
+      `;
+    }
+  </script>
+</body>
+</html>

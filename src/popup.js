@@ -239,10 +239,18 @@ function renderRecordings(recs, activeReplays) {
     .map(
       (r) => {
         const isReplaying = r.id in (activeReplays || {});
+        let sourceHtml = "";
+        if (r.sourceUrl) {
+          try {
+            const u = new URL(r.sourceUrl);
+            sourceHtml = `<span class="rec-source" data-url="${esc(r.sourceUrl)}" title="${esc(r.sourceUrl)}">${esc(u.pathname + u.search)}</span>`;
+          } catch {}
+        }
         return `
     <div class="rec-item" data-id="${r.id}">
       <button class="edit" data-id="${r.id}">Edit</button>
       <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
+      ${sourceHtml}
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
       <button class="merge" data-id="${r.id}">Merge</button>
       <button class="replay ${isReplaying ? "active-replay" : ""}" data-id="${r.id}">
@@ -300,7 +308,7 @@ function refresh() {
     }
 
     if (!isRenaming && !isMerging) {
-      const recKey = JSON.stringify(res.recordings.map(r => r.id + r.name + r.count)) + JSON.stringify(res.activeReplays || {});
+      const recKey = JSON.stringify(res.recordings.map(r => r.id + r.name + r.count + (r.sourceUrl || ""))) + JSON.stringify(res.activeReplays || {});
       if (recKey !== lastRecKey) {
         lastRecKey = recKey;
         renderRecordings(res.recordings, res.activeReplays);
@@ -333,6 +341,17 @@ clearBtn.addEventListener("click", () => {
 });
 
 recordingsEl.addEventListener("click", (e) => {
+  const sourceEl = e.target.closest(".rec-source");
+  if (sourceEl) {
+    const url = sourceEl.dataset.url;
+    if (url) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) chrome.tabs.update(tabs[0].id, { url });
+      });
+    }
+    return;
+  }
+
   const nameEl = e.target.closest(".rec-name");
   if (nameEl && !e.target.closest("button")) {
     const id = nameEl.dataset.id;

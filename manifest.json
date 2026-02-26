@@ -3,7 +3,7 @@
   "name": "Sniffer",
   "version": "0.2.0",
   "description": "Sniff, record, and replay network requests",
-  "permissions": ["webRequest", "storage"],
+  "permissions": ["webRequest", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background.js"
