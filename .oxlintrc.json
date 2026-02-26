@@ -6,7 +6,8 @@
     "perf": "warn"
   },
   "globals": {
-    "chrome": "readonly"
+    "chrome": "readonly",
+    "JSONEditor": "readonly"
   },
   "rules": {
     "no-unused-vars": "warn"

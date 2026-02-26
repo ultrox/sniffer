@@ -1,3 +1,8 @@
+import {
+  findMatch,
+  substituteParams,
+} from "./logic/matching.js";
+
 (function () {
   let mode = null;
   let replayEntries = [];
@@ -12,111 +17,8 @@
     window.postMessage({ source: "sniffer-intercept", ...data }, "*");
   }
 
-  function hasRouteParams(url) {
-    try {
-      const u = new URL(url);
-      if (u.pathname.split("/").some((s) => s.startsWith(":"))) return true;
-      for (const v of u.searchParams.values()) {
-        if (v.startsWith(":")) return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
-  function matchRoute(patternUrl, actualUrl) {
-    try {
-      const pu = new URL(patternUrl);
-      const au = new URL(actualUrl);
-      if (pu.origin !== au.origin) return null;
-      const pParts = pu.pathname.split("/");
-      const aParts = au.pathname.split("/");
-      if (pParts.length !== aParts.length) return null;
-      const params = {};
-      for (let i = 0; i < pParts.length; i++) {
-        if (pParts[i].startsWith(":")) {
-          params[pParts[i]] = aParts[i];
-        } else if (pParts[i] !== aParts[i]) {
-          return null;
-        }
-      }
-      // Match query params — pattern values starting with : are wildcards
-      for (const [key, pVal] of pu.searchParams) {
-        if (!au.searchParams.has(key)) return null;
-        if (pVal.startsWith(":")) {
-          params[pVal] = au.searchParams.get(key);
-        } else if (au.searchParams.get(key) !== pVal) {
-          return null;
-        }
-      }
-      return params;
-    } catch {
-      return null;
-    }
-  }
-
-  function substituteParams(text, params) {
-    if (!text || !params) return text;
-    let result = text;
-    for (const [key, value] of Object.entries(params)) {
-      const name = key.startsWith(":") ? key.slice(1) : key;
-      result = result.replaceAll(`{{${name}}}`, value);
-    }
-    return result;
-  }
-
-  function findMatch(url, method) {
-    // 1. Exact match
-    const exact = replayEntries.find(
-      (e) => e.url === url && e.method === method
-    );
-    if (exact) return { entry: exact, params: null };
-
-    // 2. Match ignoring query param order / extra params
-    try {
-      const u = new URL(url);
-      const path = u.pathname;
-      const params = u.searchParams;
-
-      // Same path + method candidates
-      const candidates = replayEntries.filter((e) => {
-        try {
-          return new URL(e.url).pathname === path && e.method === method;
-        } catch {
-          return false;
-        }
-      });
-
-      if (candidates.length === 1) return { entry: candidates[0], params: null };
-
-      if (candidates.length > 1) {
-        // Score by matching query params — most matches wins
-        let best = null;
-        let bestScore = -1;
-        for (const c of candidates) {
-          const cp = new URL(c.url).searchParams;
-          let score = 0;
-          for (const [k, v] of cp) {
-            if (params.get(k) === v) score++;
-          }
-          if (score > bestScore) {
-            bestScore = score;
-            best = c;
-          }
-        }
-        return { entry: best, params: null };
-      }
-    } catch {}
-
-    // 3. Parameterized route match
-    for (const e of replayEntries) {
-      if (e.method !== method || !hasRouteParams(e.url)) continue;
-      const matched = matchRoute(e.url, url);
-      if (matched) return { entry: e, params: matched };
-    }
-
-    return null;
+  function doFindMatch(url, method) {
+    return findMatch(url, method, replayEntries);
   }
 
   // --- Patch fetch ---
@@ -126,7 +28,7 @@
     const method = req.method;
 
     if (mode === "replay") {
-      const result = findMatch(url, method);
+      const result = doFindMatch(url, method);
       if (result) {
         post({ type: "replayed" });
         const body = substituteParams(result.entry.body, result.params);
@@ -183,17 +85,17 @@
     const { url, method } = this._sniffer;
 
     if (mode === "replay") {
-      const result = findMatch(url, method);
+      const result = doFindMatch(url, method);
       if (result) {
         post({ type: "replayed" });
-        const body = substituteParams(result.entry.body, result.params);
+        const responseBody = substituteParams(result.entry.body, result.params);
         Object.defineProperty(this, "readyState", { value: 4 });
         Object.defineProperty(this, "status", { value: result.entry.status });
         Object.defineProperty(this, "statusText", {
           value: result.entry.statusText || "",
         });
-        Object.defineProperty(this, "responseText", { value: body });
-        Object.defineProperty(this, "response", { value: body });
+        Object.defineProperty(this, "responseText", { value: responseBody });
+        Object.defineProperty(this, "response", { value: responseBody });
         const self = this;
         setTimeout(() => {
           self.dispatchEvent(new Event("readystatechange"));

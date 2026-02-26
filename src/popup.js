@@ -1,3 +1,15 @@
+import "./popup.css";
+import {
+  statusClass,
+  cleanUrl,
+  getPath,
+  isFormEncoded,
+  fmtSize,
+  timeAgo,
+  esc,
+  buildUrlFromParts,
+} from "./logic/helpers.js";
+
 // --- Elements ---
 const mainView = document.getElementById("mainView");
 const detailView = document.getElementById("detailView");
@@ -41,43 +53,6 @@ let activeJsonEditor = null;
 let isImporting = false;
 
 // --- Helpers ---
-function statusClass(code) {
-  if (!code) return "";
-  if (code >= 200 && code < 300) return "ok";
-  if (code >= 300 && code < 400) return "redir";
-  return "err";
-}
-
-function cleanUrl(url) {
-  try {
-    const u = new URL(url);
-    return u.pathname + u.search;
-  } catch {
-    return url;
-  }
-}
-
-function buildUrlFromParts(base, paramFields) {
-  let qs = "";
-  paramFields.forEach(f => {
-    qs += (qs ? "&" : "?") + encodeURIComponent(f.dataset.key) + "=" + f.value;
-  });
-  return base + qs;
-}
-
-function getPath(url) {
-  try {
-    return new URL(url).pathname;
-  } catch {
-    return url;
-  }
-}
-
-function isFormEncoded(str) {
-  if (!str || str.startsWith("{") || str.startsWith("[")) return false;
-  return str.includes("=") && !str.includes("\n");
-}
-
 function renderPayload(payload) {
   if (!payload) return "";
   if (isFormEncoded(payload)) {
@@ -90,7 +65,7 @@ function renderPayload(payload) {
             <label>${esc(k)}
               <input name="payload-field" data-key="${esc(k)}" value="${esc(v)}">
             </label>
-          </div>`
+          </div>`,
       )
       .join("");
     return `<div class="payload-section collapsed">
@@ -125,33 +100,11 @@ function collectPayload(form) {
   return textarea ? textarea.value : null;
 }
 
-function esc(s) {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-function fmtSize(str) {
-  if (!str) return "—";
-  const n = str.length;
-  if (n < 1000) return `${n}B`;
-  if (n < 1000000) return `${(n / 1000).toFixed(1)}K`;
-  return `${(n / 1000000).toFixed(1)}M`;
-}
-
-function timeAgo(ts) {
-  const sec = Math.floor((Date.now() - ts) / 1000);
-  if (sec < 60) return "just now";
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
-}
-
 function renderIgnoreTags(patterns) {
   return patterns
     .map(
       (p) =>
-        `<span class="ignore-tag" data-pattern="${esc(p)}">${esc(p)} <span class="remove">x</span></span>`
+        `<span class="ignore-tag" data-pattern="${esc(p)}">${esc(p)} <span class="remove">x</span></span>`,
     )
     .join("");
 }
@@ -160,7 +113,7 @@ function renderIgnoreTags(patterns) {
 function renderFilters() {
   filtersEl.innerHTML = ALL_TYPES.map(
     (t) =>
-      `<span class="chip ${activeFilters.includes(t) ? "on" : ""}" data-type="${t}">${t}</span>`
+      `<span class="chip ${activeFilters.includes(t) ? "on" : ""}" data-type="${t}">${t}</span>`,
   ).join("");
 }
 
@@ -194,7 +147,7 @@ function renderIgnoreBar() {
         (res) => {
           if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
           renderIgnoreBar();
-        }
+        },
       );
     });
 }
@@ -227,7 +180,7 @@ function renderRequests(items) {
       <span class="url" title="${esc(r.url)}">${esc(cleanUrl(r.url))}</span>
       <span class="status ${statusClass(r.status)}">${r.status || "..."}</span>
       <span class="req-ignore" data-path="${esc(getPath(r.url))}" title="Ignore ${esc(getPath(r.url))}">ban</span>
-    </div>`
+    </div>`,
     )
     .join("");
 }
@@ -253,17 +206,16 @@ function renderRecordings(recs, activeReplays) {
   }
   recordingsEl.innerHTML = recs
     .toReversed()
-    .map(
-      (r) => {
-        const isReplaying = r.id in (activeReplays || {});
-        let sourceHtml = "";
-        if (r.sourceUrl) {
-          try {
-            const u = new URL(r.sourceUrl);
-            sourceHtml = `<span class="rec-source" data-url="${esc(r.sourceUrl)}" title="${esc(r.sourceUrl)}">${esc(u.pathname + u.search)}</span>`;
-          } catch {}
-        }
-        return `
+    .map((r) => {
+      const isReplaying = r.id in (activeReplays || {});
+      let sourceHtml = "";
+      if (r.sourceUrl) {
+        try {
+          const u = new URL(r.sourceUrl);
+          sourceHtml = `<span class="rec-source" data-url="${esc(r.sourceUrl)}" title="${esc(r.sourceUrl)}">${esc(u.pathname + u.search)}</span>`;
+        } catch {}
+      }
+      return `
     <div class="rec-item" data-id="${r.id}">
       <button class="edit" data-id="${r.id}">Edit</button>
       <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
@@ -275,8 +227,7 @@ function renderRecordings(recs, activeReplays) {
       </button>
       <button class="del" data-id="${r.id}">x</button>
     </div>`;
-      }
-    )
+    })
     .join("");
 }
 
@@ -289,7 +240,10 @@ function refresh() {
     activeFilters = res.recordFilters || activeFilters;
     renderFilters();
 
-    if (JSON.stringify(ignorePatterns) !== JSON.stringify(res.ignorePatterns || [])) {
+    if (
+      JSON.stringify(ignorePatterns) !==
+      JSON.stringify(res.ignorePatterns || [])
+    ) {
       ignorePatterns = res.ignorePatterns || [];
       renderIgnoreBar();
     }
@@ -325,7 +279,12 @@ function refresh() {
     }
 
     if (!isRenaming && !isMerging) {
-      const recKey = JSON.stringify(res.recordings.map(r => r.id + r.name + r.count + (r.sourceUrl || ""))) + JSON.stringify(res.activeReplays || {});
+      const recKey =
+        JSON.stringify(
+          res.recordings.map(
+            (r) => r.id + r.name + r.count + (r.sourceUrl || ""),
+          ),
+        ) + JSON.stringify(res.activeReplays || {});
       if (recKey !== lastRecKey) {
         lastRecKey = recKey;
         renderRecordings(res.recordings, res.activeReplays);
@@ -347,7 +306,7 @@ recordBtn.addEventListener("click", () => {
     } else {
       chrome.runtime.sendMessage(
         { type: "startRecord", filters: activeFilters },
-        () => refresh()
+        () => refresh(),
       );
     }
   });
@@ -385,12 +344,15 @@ recordingsEl.addEventListener("click", (e) => {
       const name = input.value.trim() || current;
       chrome.runtime.sendMessage(
         { type: "renameRecording", recordingId: id, name },
-        () => refresh()
+        () => refresh(),
       );
     };
     input.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") commit();
-      if (ev.key === "Escape") { isRenaming = false; refresh(); }
+      if (ev.key === "Escape") {
+        isRenaming = false;
+        refresh();
+      }
     });
     input.addEventListener("blur", commit);
     return;
@@ -409,12 +371,12 @@ recordingsEl.addEventListener("click", (e) => {
     if (btn.classList.contains("active-replay")) {
       chrome.runtime.sendMessage(
         { type: "stopReplay", recordingId: id },
-        () => refresh()
+        () => refresh(),
       );
     } else {
       chrome.runtime.sendMessage(
         { type: "startReplay", recordingId: id },
-        () => refresh()
+        () => refresh(),
       );
     }
   }
@@ -427,7 +389,7 @@ recordingsEl.addEventListener("click", (e) => {
   if (btn.classList.contains("del")) {
     chrome.runtime.sendMessage(
       { type: "deleteRecording", recordingId: id },
-      () => refresh()
+      () => refresh(),
     );
   }
 });
@@ -437,7 +399,10 @@ function showMergePicker(sourceId) {
   const row = recordingsEl.querySelector(`.rec-item[data-id="${sourceId}"]`);
   if (!row) return;
   const existing = recordingsEl.querySelector(".merge-picker");
-  if (existing) { existing.remove(); isMerging = false; }
+  if (existing) {
+    existing.remove();
+    isMerging = false;
+  }
 
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
     if (!res) return;
@@ -452,7 +417,7 @@ function showMergePicker(sourceId) {
       targets
         .map(
           (r) =>
-            `<button class="merge-target" data-id="${r.id}">${esc(r.name)}</button>`
+            `<button class="merge-target" data-id="${r.id}">${esc(r.name)}</button>`,
         )
         .join("") +
       `<button class="merge-cancel">Esc</button>`;
@@ -472,7 +437,7 @@ function showMergePicker(sourceId) {
           () => {
             closePicker();
             refresh();
-          }
+          },
         );
         return;
       }
@@ -497,7 +462,10 @@ function openDetail(recordingId) {
 }
 
 function closeDetail() {
-  if (activeJsonEditor) { activeJsonEditor.destroy(); activeJsonEditor = null; }
+  if (activeJsonEditor) {
+    activeJsonEditor.destroy();
+    activeJsonEditor = null;
+  }
   currentView = "main";
   detailView.style.display = "none";
   mainView.style.display = "block";
@@ -513,6 +481,8 @@ function updateDetailReplayBtn() {
   });
 }
 
+let detailAllEntries = [];
+
 function loadDetail() {
   chrome.runtime.sendMessage(
     { type: "getRecording", recordingId: detailRecordingId },
@@ -526,7 +496,6 @@ function loadDetail() {
         titleEl.textContent = rec.name;
         titleEl.title = "Click to rename";
       } else {
-        // Re-create if it was replaced by rename input
         const span = document.createElement("span");
         span.id = "detailTitle";
         span.style.cssText = "flex:1; font-size:12px; cursor:pointer";
@@ -542,11 +511,9 @@ function loadDetail() {
       detailBodyFilter.value = "";
       renderDetailEntries(rec.entries);
       updateDetailReplayBtn();
-    }
+    },
   );
 }
-
-let detailAllEntries = [];
 
 function applyDetailFilters() {
   const pathQ = detailPathFilter.value.trim().toLowerCase();
@@ -601,10 +568,17 @@ function renderDetailEntries(entries) {
                 try {
                   const u = new URL(e.url);
                   const params = [...u.searchParams.entries()];
-                  return `<input name="url-base" value="${esc(u.origin + u.pathname)}">` +
-                    (params.length ? `<div class="payload-parsed" style="margin-top:4px">${params.map(([k, v]) =>
-                      `<div class="payload-field"><label>${esc(k)}<input name="url-param" data-key="${esc(k)}" value="${esc(v)}"></label></div>`
-                    ).join("")}</div>` : "");
+                  return (
+                    `<input name="url-base" value="${esc(u.origin + u.pathname)}">` +
+                    (params.length
+                      ? `<div class="payload-parsed" style="margin-top:4px">${params
+                          .map(
+                            ([k, v]) =>
+                              `<div class="payload-field"><label>${esc(k)}<input name="url-param" data-key="${esc(k)}" value="${esc(v)}"></label></div>`,
+                          )
+                          .join("")}</div>`
+                      : "")
+                  );
                 } catch {
                   return `<input name="url-base" value="${esc(e.url)}">`;
                 }
@@ -617,7 +591,7 @@ function renderDetailEntries(entries) {
                 ${["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
                   .map(
                     (m) =>
-                      `<option ${m === e.method ? "selected" : ""}>${m}</option>`
+                      `<option ${m === e.method ? "selected" : ""}>${m}</option>`,
                   )
                   .join("")}
               </select>
@@ -682,7 +656,7 @@ detailReplayBtn.addEventListener("click", () => {
   const msgType = isReplaying ? "stopReplay" : "startReplay";
   chrome.runtime.sendMessage(
     { type: msgType, recordingId: detailRecordingId },
-    () => updateDetailReplayBtn()
+    () => updateDetailReplayBtn(),
   );
 });
 
@@ -691,7 +665,11 @@ const importBtn = document.getElementById("importBtn");
 
 importBtn.addEventListener("click", () => {
   const existing = detailView.querySelector(".import-picker");
-  if (existing) { existing.remove(); isImporting = false; return; }
+  if (existing) {
+    existing.remove();
+    isImporting = false;
+    return;
+  }
   showImportPicker();
 });
 
@@ -709,9 +687,12 @@ function showImportPicker() {
     header.className = "import-picker-header";
     header.innerHTML =
       `<span class="merge-label">Import from:</span>` +
-      others.map((r) =>
-        `<button class="import-source" data-id="${r.id}">${esc(r.name)}</button>`
-      ).join("") +
+      others
+        .map(
+          (r) =>
+            `<button class="import-source" data-id="${r.id}">${esc(r.name)}</button>`,
+        )
+        .join("") +
       `<button class="merge-cancel">Close</button>`;
     picker.appendChild(header);
 
@@ -730,22 +711,31 @@ function showImportPicker() {
     };
 
     const selectSource = (sourceId) => {
-      header.querySelectorAll(".import-source").forEach((b) =>
-        b.classList.toggle("active", b.dataset.id === sourceId)
-      );
+      header
+        .querySelectorAll(".import-source")
+        .forEach((b) =>
+          b.classList.toggle("active", b.dataset.id === sourceId),
+        );
       chrome.runtime.sendMessage(
         { type: "getRecording", recordingId: sourceId },
         (rec) => {
-          if (!rec) { entriesDiv.innerHTML = ""; return; }
-          entriesDiv.innerHTML = rec.entries.map((e, i) =>
-            `<div class="import-row" data-index="${i}">
+          if (!rec) {
+            entriesDiv.innerHTML = "";
+            return;
+          }
+          entriesDiv.innerHTML =
+            rec.entries
+              .map(
+                (e, i) =>
+                  `<div class="import-row" data-index="${i}">
               <span class="method ${e.method}">${e.method}</span>
               <span class="type">${e.kind || ""}</span>
               <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
               <span class="size">${fmtSize(e.body)}</span>
               <button class="import-add" data-index="${i}">Add</button>
-            </div>`
-          ).join("") || '<div class="empty">No entries</div>';
+            </div>`,
+              )
+              .join("") || '<div class="empty">No entries</div>';
 
           entriesDiv.onclick = (ev) => {
             const addBtn = ev.target.closest(".import-add");
@@ -754,11 +744,14 @@ function showImportPicker() {
             const entry = rec.entries[idx];
             if (!entry) return;
             chrome.runtime.sendMessage(
-              { type: "copyEntries", targetId: detailRecordingId, entries: [entry] },
+              {
+                type: "copyEntries",
+                targetId: detailRecordingId,
+                entries: [entry],
+              },
               () => {
                 addBtn.textContent = "Added";
                 addBtn.classList.add("import-added");
-                // Refresh entry list immediately so the new entry is visible
                 chrome.runtime.sendMessage(
                   { type: "getRecording", recordingId: detailRecordingId },
                   (updated) => {
@@ -766,18 +759,21 @@ function showImportPicker() {
                     detailAllEntries = updated.entries;
                     detailCount.textContent = `${updated.entries.length} req`;
                     applyDetailFilters();
-                  }
+                  },
                 );
-              }
+              },
             );
           };
-        }
+        },
       );
     };
 
     header.addEventListener("click", (ev) => {
       const src = ev.target.closest(".import-source");
-      if (src) { selectSource(src.dataset.id); return; }
+      if (src) {
+        selectSource(src.dataset.id);
+        return;
+      }
       if (ev.target.closest(".merge-cancel")) closePicker();
     });
 
@@ -804,7 +800,7 @@ detailView.addEventListener("click", (e) => {
     const name = input.value.trim() || current;
     chrome.runtime.sendMessage(
       { type: "renameRecording", recordingId: detailRecordingId, name },
-      () => loadDetail()
+      () => loadDetail(),
     );
   };
   input.addEventListener("keydown", (ev) => {
@@ -821,24 +817,28 @@ detailEntries.addEventListener("click", (e) => {
     const rawDiv = section.querySelector(".url-raw");
     const parsedDiv = section.querySelector(".url-parsed");
     if (rawDiv.style.display !== "none") {
-      // Sync raw → parsed before switching
       const rawUrl = rawDiv.querySelector('[name="url"]').value;
       try {
         const u = new URL(rawUrl);
-        parsedDiv.querySelector('[name="url-base"]').value = u.origin + u.pathname;
+        parsedDiv.querySelector('[name="url-base"]').value =
+          u.origin + u.pathname;
         const params = parsedDiv.querySelectorAll('[name="url-param"]');
-        params.forEach(f => {
-          if (u.searchParams.has(f.dataset.key)) f.value = u.searchParams.get(f.dataset.key);
+        params.forEach((f) => {
+          if (u.searchParams.has(f.dataset.key))
+            f.value = u.searchParams.get(f.dataset.key);
         });
       } catch {}
       rawDiv.style.display = "none";
       parsedDiv.style.display = "";
       urlModeBtn.textContent = "Raw";
     } else {
-      // Sync parsed → raw before switching
       const base = parsedDiv.querySelector('[name="url-base"]').value;
       const params = parsedDiv.querySelectorAll('[name="url-param"]');
-      rawDiv.querySelector('[name="url"]').value = buildUrlFromParts(base, params);
+      const pairs = [...params].map((f) => [f.dataset.key, f.value]);
+      rawDiv.querySelector('[name="url"]').value = buildUrlFromParts(
+        base,
+        pairs,
+      );
       parsedDiv.style.display = "none";
       rawDiv.style.display = "";
       urlModeBtn.textContent = "Parsed";
@@ -859,7 +859,6 @@ detailEntries.addEventListener("click", (e) => {
     const parsed = section.querySelector(".payload-parsed");
     const raw = section.querySelector(".payload-raw");
     if (modeBtn.dataset.mode === "parsed") {
-      // Sync fields to raw before switching
       const fields = parsed.querySelectorAll('[name="payload-field"]');
       const params = new URLSearchParams();
       fields.forEach((f) => params.set(f.dataset.key, f.value));
@@ -869,12 +868,12 @@ detailEntries.addEventListener("click", (e) => {
       modeBtn.dataset.mode = "raw";
       modeBtn.textContent = "Parsed";
     } else {
-      // Sync raw to fields before switching
       try {
         const params = new URLSearchParams(raw.value);
         const fields = parsed.querySelectorAll('[name="payload-field"]');
         fields.forEach((f) => {
-          if (params.has(f.dataset.key)) f.value = params.get(f.dataset.key);
+          if (params.has(f.dataset.key))
+            f.value = params.get(f.dataset.key);
         });
       } catch {}
       raw.style.display = "none";
@@ -893,7 +892,7 @@ detailEntries.addEventListener("click", (e) => {
       () => {
         expandedEntry = -1;
         loadDetail();
-      }
+      },
     );
     return;
   }
@@ -902,12 +901,16 @@ detailEntries.addEventListener("click", (e) => {
   if (saveBtn) {
     const idx = parseInt(saveBtn.dataset.index);
     const form = detailEntries.querySelector(
-      `.edit-form[data-index="${idx}"]`
+      `.edit-form[data-index="${idx}"]`,
     );
     const payload = collectPayload(form);
     let body;
     if (activeJsonEditor) {
-      try { body = JSON.stringify(activeJsonEditor.get()); } catch { body = ""; }
+      try {
+        body = JSON.stringify(activeJsonEditor.get());
+      } catch {
+        body = "";
+      }
     } else {
       body = (form.querySelector('[name="body"]') || {}).value || "";
     }
@@ -916,7 +919,8 @@ detailEntries.addEventListener("click", (e) => {
     if (urlParsed && urlParsed.style.display !== "none") {
       const base = urlParsed.querySelector('[name="url-base"]').value;
       const params = urlParsed.querySelectorAll('[name="url-param"]');
-      url = buildUrlFromParts(base, params);
+      const pairs = [...params].map((f) => [f.dataset.key, f.value]);
+      url = buildUrlFromParts(base, pairs);
     } else {
       url = form.querySelector('[name="url"]').value;
     }
@@ -938,7 +942,7 @@ detailEntries.addEventListener("click", (e) => {
       () => {
         expandedEntry = -1;
         loadDetail();
-      }
+      },
     );
     return;
   }
