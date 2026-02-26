@@ -38,6 +38,7 @@ let isRenaming = false;
 let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
+let isImporting = false;
 
 // --- Helpers ---
 function statusClass(code) {
@@ -684,6 +685,108 @@ detailReplayBtn.addEventListener("click", () => {
     () => updateDetailReplayBtn()
   );
 });
+
+// --- Import picker ---
+const importBtn = document.getElementById("importBtn");
+
+importBtn.addEventListener("click", () => {
+  const existing = detailView.querySelector(".import-picker");
+  if (existing) { existing.remove(); isImporting = false; return; }
+  showImportPicker();
+});
+
+function showImportPicker() {
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res) return;
+    const others = res.recordings.filter((r) => r.id !== detailRecordingId);
+    if (others.length === 0) return;
+
+    isImporting = true;
+    const picker = document.createElement("div");
+    picker.className = "import-picker";
+
+    const header = document.createElement("div");
+    header.className = "import-picker-header";
+    header.innerHTML =
+      `<span class="merge-label">Import from:</span>` +
+      others.map((r) =>
+        `<button class="import-source" data-id="${r.id}">${esc(r.name)}</button>`
+      ).join("") +
+      `<button class="merge-cancel">Close</button>`;
+    picker.appendChild(header);
+
+    const entriesDiv = document.createElement("div");
+    entriesDiv.className = "import-entries";
+    picker.appendChild(entriesDiv);
+
+    const toolbar = detailView.querySelector(".toolbar");
+    toolbar.after(picker);
+
+    const closePicker = () => {
+      picker.remove();
+      isImporting = false;
+      document.removeEventListener("keydown", onKey);
+      loadDetail();
+    };
+
+    const selectSource = (sourceId) => {
+      header.querySelectorAll(".import-source").forEach((b) =>
+        b.classList.toggle("active", b.dataset.id === sourceId)
+      );
+      chrome.runtime.sendMessage(
+        { type: "getRecording", recordingId: sourceId },
+        (rec) => {
+          if (!rec) { entriesDiv.innerHTML = ""; return; }
+          entriesDiv.innerHTML = rec.entries.map((e, i) =>
+            `<div class="import-row" data-index="${i}">
+              <span class="method ${e.method}">${e.method}</span>
+              <span class="type">${e.kind || ""}</span>
+              <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
+              <span class="size">${fmtSize(e.body)}</span>
+              <button class="import-add" data-index="${i}">Add</button>
+            </div>`
+          ).join("") || '<div class="empty">No entries</div>';
+
+          entriesDiv.onclick = (ev) => {
+            const addBtn = ev.target.closest(".import-add");
+            if (!addBtn || addBtn.classList.contains("import-added")) return;
+            const idx = parseInt(addBtn.dataset.index);
+            const entry = rec.entries[idx];
+            if (!entry) return;
+            chrome.runtime.sendMessage(
+              { type: "copyEntries", targetId: detailRecordingId, entries: [entry] },
+              () => {
+                addBtn.textContent = "Added";
+                addBtn.classList.add("import-added");
+                // Refresh entry list immediately so the new entry is visible
+                chrome.runtime.sendMessage(
+                  { type: "getRecording", recordingId: detailRecordingId },
+                  (updated) => {
+                    if (!updated) return;
+                    detailAllEntries = updated.entries;
+                    detailCount.textContent = `${updated.entries.length} req`;
+                    applyDetailFilters();
+                  }
+                );
+              }
+            );
+          };
+        }
+      );
+    };
+
+    header.addEventListener("click", (ev) => {
+      const src = ev.target.closest(".import-source");
+      if (src) { selectSource(src.dataset.id); return; }
+      if (ev.target.closest(".merge-cancel")) closePicker();
+    });
+
+    const onKey = (e) => {
+      if (e.key === "Escape") closePicker();
+    };
+    document.addEventListener("keydown", onKey);
+  });
+}
 
 detailView.addEventListener("click", (e) => {
   const titleEl = e.target.closest("#detailTitle");

@@ -134,6 +134,40 @@
   }
   .merge-cancel:hover { color: #e0e0e0; }
 
+  /* Import picker */
+  .import-picker {
+    padding: 6px 8px; background: #252538; border-bottom: 1px solid #444;
+  }
+  .import-picker-header {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .import-picker-header .merge-label { font-size: 11px; color: #888; }
+  .import-picker-header button {
+    padding: 2px 8px; border: 1px solid #3498db; border-radius: 3px;
+    background: #1a2a3e; color: #3498db; cursor: pointer; font: 11px monospace;
+  }
+  .import-picker-header button:hover { background: #2a3a4e; color: #5dade2; }
+  .import-picker-header button.active { background: #3498db; color: #fff; }
+  .import-picker-header .merge-cancel {
+    border-color: #444; background: transparent; color: #888;
+  }
+  .import-entries {
+    max-height: 260px; overflow-y: auto; margin-top: 4px;
+  }
+  .import-row {
+    display: grid; grid-template-columns: 56px 48px 1fr 44px 50px;
+    gap: 8px; padding: 3px 8px; align-items: center; border-bottom: 1px solid #1a1a2e;
+  }
+  .import-row:hover { background: #2a2a3e; }
+  .import-row button {
+    padding: 2px 8px; border: 1px solid #2ecc71; border-radius: 3px;
+    background: #1a3a2e; color: #2ecc71; cursor: pointer; font: 11px monospace;
+  }
+  .import-row button:hover { background: #2a4a3e; }
+  .import-row button.import-added {
+    border-color: #444; background: transparent; color: #666; cursor: default;
+  }
+
   .rename-input {
     flex: 1; padding: 2px 6px; background: #1a1a2e; border: 1px solid #7a7aaa;
     border-radius: 3px; color: #e0e0e0; font: 12px monospace; outline: none;
@@ -291,6 +325,7 @@
     <div class="toolbar">
       <button id="backBtn">&lt; Back</button>
       <span id="detailTitle" style="flex:1; font-size:12px; cursor:pointer" title="Click to rename"></span>
+      <button id="importBtn">Import</button>
       <button id="detailReplayBtn">Replay</button>
       <span class="count" id="detailCount"></span>
     </div>
