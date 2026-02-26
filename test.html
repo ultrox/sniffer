@@ -47,6 +47,12 @@
     <div class="placeholder">Click a Pokémon to fetch data</div>
   </div>
 
+  <h2 style="margin-top:32px">Query Param Tests</h2>
+  <div class="buttons" id="qpButtons"></div>
+  <div class="card" id="qpCard">
+    <div class="placeholder">Click a query to test param interception</div>
+  </div>
+
   <script>
     const pokemon = [
       { id: 1, name: "Bulbasaur" },
@@ -117,6 +123,58 @@
         `;
       } catch {
         card.innerHTML = `<pre>${text}</pre>`;
+      }
+    }
+    // --- Query Param Tests ---
+    const qpButtons = document.getElementById("qpButtons");
+    const qpCard = document.getElementById("qpCard");
+
+    const qpTests = [
+      { label: "Berries (limit=5)", url: "https://pokeapi.co/api/v2/berry?limit=5&offset=0" },
+      { label: "Berries (limit=3, offset=10)", url: "https://pokeapi.co/api/v2/berry?limit=3&offset=10" },
+      { label: "Pokémon list (limit=4)", url: "https://pokeapi.co/api/v2/pokemon?limit=4&offset=0" },
+      { label: "Pokémon list (limit=2, offset=50)", url: "https://pokeapi.co/api/v2/pokemon?limit=2&offset=50" },
+      { label: "Items (limit=6)", url: "https://pokeapi.co/api/v2/item?limit=6&offset=0" },
+      { label: "Moves (limit=3, offset=100)", url: "https://pokeapi.co/api/v2/move?limit=3&offset=100" },
+    ];
+
+    qpTests.forEach(t => {
+      const btn = document.createElement("button");
+      btn.textContent = t.label;
+      btn.onclick = () => fetchQP(t.url, btn);
+      qpButtons.appendChild(btn);
+    });
+
+    async function fetchQP(url, btn) {
+      qpButtons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+      qpCard.classList.add("loading");
+      qpCard.innerHTML = '<div class="placeholder">Loading...</div>';
+
+      const res = await fetch(url);
+      const text = await res.text();
+      qpCard.classList.remove("loading");
+
+      try {
+        const d = JSON.parse(text);
+        const results = d.results || [];
+        qpCard.innerHTML = `
+          <div style="margin-bottom:12px;font-size:13px;color:#888">
+            <strong>URL:</strong> ${url}<br>
+            <strong>Count:</strong> ${d.count ?? "?"} total, showing ${results.length}
+            ${d.next ? `<br><strong>Next:</strong> ${d.next}` : ""}
+            ${d.previous ? `<br><strong>Previous:</strong> ${d.previous}` : ""}
+          </div>
+          <div style="display:grid;gap:4px">
+            ${results.map(r => `<div style="padding:6px 12px;background:#f8fafc;border-radius:6px;font-size:14px">${r.name}</div>`).join("")}
+          </div>
+          <details class="raw">
+            <summary>Raw response</summary>
+            <pre>${JSON.stringify(d, null, 2)}</pre>
+          </details>
+        `;
+      } catch {
+        qpCard.innerHTML = `<pre>${text}</pre>`;
       }
     }
   </script>

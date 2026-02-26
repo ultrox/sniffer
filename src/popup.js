@@ -36,6 +36,7 @@ let detailRecordingId = null;
 let expandedEntry = -1;
 let isRenaming = false;
 let isMerging = false;
+let activeJsonEditor = null;
 
 // --- Helpers ---
 function statusClass(code) {
@@ -453,6 +454,7 @@ function openDetail(recordingId) {
 }
 
 function closeDetail() {
+  if (activeJsonEditor) { activeJsonEditor.destroy(); activeJsonEditor = null; }
   currentView = "main";
   detailView.style.display = "none";
   mainView.style.display = "block";
@@ -564,9 +566,8 @@ function renderDetailEntries(entries) {
             </label>
           </div>
           ${renderPayload(e.payload)}
-          <label>Response body
-            <textarea name="body">${esc(e.body || "")}</textarea>
-          </label>
+          <label>Response body</label>
+          <div class="jsoneditor-container" data-index="${i}"></div>
           <div class="edit-actions">
             <button class="save" data-index="${i}">Save</button>
             <button class="cancel">Cancel</button>
@@ -577,6 +578,37 @@ function renderDetailEntries(entries) {
       return `<div class="detail-entry">${row}</div>`;
     })
     .join("");
+
+  // Initialize JSON editor or fallback textarea for expanded entry
+  if (activeJsonEditor) {
+    activeJsonEditor.destroy();
+    activeJsonEditor = null;
+  }
+  const container = detailEntries.querySelector(".jsoneditor-container");
+  if (container) {
+    const idx = parseInt(container.dataset.index);
+    const body = entries[idx]?.body || "";
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch {}
+    if (parsed !== undefined) {
+      const editorDiv = document.createElement("div");
+      editorDiv.style.height = "700px";
+      container.appendChild(editorDiv);
+      activeJsonEditor = new JSONEditor(editorDiv, {
+        mode: "tree",
+        modes: ["tree", "view"],
+        navigationBar: false,
+      });
+      activeJsonEditor.set(parsed);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.name = "body";
+      textarea.textContent = body;
+      container.replaceWith(textarea);
+    }
+  }
 }
 
 backBtn.addEventListener("click", closeDetail);
@@ -676,12 +708,18 @@ detailEntries.addEventListener("click", (e) => {
       `.edit-form[data-index="${idx}"]`
     );
     const payload = collectPayload(form);
+    let body;
+    if (activeJsonEditor) {
+      try { body = JSON.stringify(activeJsonEditor.get()); } catch { body = ""; }
+    } else {
+      body = (form.querySelector('[name="body"]') || {}).value || "";
+    }
     const updates = {
       url: form.querySelector('[name="url"]').value,
       method: form.querySelector('[name="method"]').value,
       status: parseInt(form.querySelector('[name="status"]').value) || 200,
       kind: form.querySelector('[name="kind"]').value,
-      body: form.querySelector('[name="body"]').value,
+      body,
     };
     if (payload !== null) updates.payload = payload;
     chrome.runtime.sendMessage(

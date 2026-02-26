@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="vendor/jsoneditor.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: 500px; max-height: 600px; font: 13px/1.4 monospace; background: #1a1a2e; color: #e0e0e0; overflow-y: auto; }
+  body { width: 700px; max-height: 800px; font: 13px/1.4 monospace; background: #1a1a2e; color: #e0e0e0; overflow-y: auto; }
 
   /* Toolbar */
   .toolbar { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #333; align-items: center; }
@@ -139,7 +141,7 @@
     color: #e0e0e0; font: 11px monospace; outline: none;
   }
   .detail-search input:focus { border-color: #7a7aaa; }
-  .detail-entries { overflow-y: auto; max-height: 420px; }
+  .detail-entries { overflow-y: auto; max-height: 620px; }
   .detail-entry {
     border-bottom: 1px solid #222; cursor: pointer;
   }
@@ -165,7 +167,7 @@
   .edit-form textarea { height: 120px; resize: vertical; }
   .edit-row { display: flex; gap: 8px; }
   .edit-row > * { flex: 1; }
-  .edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 8px; position: relative; z-index: 10; }
   .edit-actions button {
     padding: 4px 12px; border: 1px solid #444; border-radius: 4px;
     background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: 12px monospace;
@@ -200,6 +202,52 @@
   }
   .edit-actions button.save { background: #2a4a3e; border-color: #2ecc71; color: #2ecc71; }
   #detailReplayBtn.active-replay { background: #2ecc71; border-color: #2ecc71; color: #fff; }
+
+  /* JSON Editor dark theme overrides */
+  div.jsoneditor { border-color: #444; }
+
+  /* Menu bar */
+  div.jsoneditor-menu { background-color: #2a2a3e; border-bottom: 1px solid #444; }
+  div.jsoneditor-menu > button { }
+  div.jsoneditor-menu > .jsoneditor-modes > button { color: #e0e0e0; font-size: 10pt; filter: none; }
+
+  /* Search in menu bar */
+  .jsoneditor-search { background-color: #1a1a2e !important; border: 1px solid #444 !important; border-radius: 3px; }
+  .jsoneditor-search input { color: #e0e0e0 !important; background: transparent !important; }
+  .jsoneditor-search button { filter: invert(0.8); }
+  .jsoneditor-search button.jsoneditor-refresh { width: 30px; }
+  .jsoneditor-search .jsoneditor-results { color: #888; }
+  .jsoneditor-frame { background: #1a1a2e; display: flex; }
+  .jsoneditor-frame button { width: 30px; }
+  div.jsoneditor-outer { overflow: hidden; }
+
+  /* Tree */
+  div.jsoneditor td,
+  div.jsoneditor th,
+  div.jsoneditor tr { background: #1a1a2e; color: #e0e0e0; }
+  div.jsoneditor td.jsoneditor-separator { color: #888; }
+  div.jsoneditor-value.jsoneditor-string { color: #2ecc71; }
+  div.jsoneditor-value.jsoneditor-number { color: #3498db; }
+  div.jsoneditor-value.jsoneditor-boolean { color: #e67e22; }
+  div.jsoneditor-value.jsoneditor-null { color: #e74c3c; }
+  div.jsoneditor-field { color: #9b59b6; }
+  div.jsoneditor-readonly { color: #666; }
+  div.jsoneditor-tree { background: #1a1a2e; }
+  div.jsoneditor-tree button.jsoneditor-button { filter: invert(0.8); }
+
+  /* Context menu */
+  div.jsoneditor-contextmenu .jsoneditor-menu li button { background: #2a2a3e; color: #e0e0e0; }
+  div.jsoneditor-contextmenu .jsoneditor-menu li button .jsoneditor-icon { filter: invert(0.8); }
+  div.jsoneditor-contextmenu .jsoneditor-menu li button:hover,
+  div.jsoneditor-contextmenu .jsoneditor-menu li button:focus { background: #3a3a4e; }
+  div.jsoneditor-contextmenu .jsoneditor-menu li { background: #2a2a3e; }
+  div.jsoneditor-contextmenu .jsoneditor-menu { border-color: #444; background: #2a2a3e; }
+  div.jsoneditor-contextmenu .jsoneditor-menu li .jsoneditor-expand { background: #2a2a3e; }
+  div.jsoneditor-contextmenu .jsoneditor-menu li .jsoneditor-expand:hover { background: #3a3a4e; }
+  div.jsoneditor-contextmenu .jsoneditor-separator { background: #444; }
+  textarea.jsoneditor-text { background: #1a1a2e; color: #e0e0e0; }
+  div.jsoneditor td.jsoneditor-tree { background: #1a1a2e; }
+  .edit-form .jsoneditor-container { height: 700px; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -238,6 +286,7 @@
     <div class="detail-entries" id="detailEntries"></div>
   </div>
 
+  <script src="vendor/jsoneditor-minimalist.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
