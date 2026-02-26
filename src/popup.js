@@ -36,6 +36,7 @@ let detailRecordingId = null;
 let expandedEntry = -1;
 let isRenaming = false;
 let isMerging = false;
+let lastRecKey = "";
 let activeJsonEditor = null;
 
 // --- Helpers ---
@@ -240,9 +241,9 @@ function renderRecordings(recs, activeReplays) {
         const isReplaying = r.id in (activeReplays || {});
         return `
     <div class="rec-item" data-id="${r.id}">
+      <button class="edit" data-id="${r.id}">Edit</button>
       <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
-      <button class="edit" data-id="${r.id}">Edit</button>
       <button class="merge" data-id="${r.id}">Merge</button>
       <button class="replay ${isReplaying ? "active-replay" : ""}" data-id="${r.id}">
         ${isReplaying ? "Stop" : "Replay"}
@@ -298,7 +299,13 @@ function refresh() {
       renderRequests(res.requests);
     }
 
-    if (!isRenaming && !isMerging) renderRecordings(res.recordings, res.activeReplays);
+    if (!isRenaming && !isMerging) {
+      const recKey = JSON.stringify(res.recordings.map(r => r.id + r.name + r.count)) + JSON.stringify(res.activeReplays || {});
+      if (recKey !== lastRecKey) {
+        lastRecKey = recKey;
+        renderRecordings(res.recordings, res.activeReplays);
+      }
+    }
   });
 }
 
@@ -544,9 +551,29 @@ function renderDetailEntries(entries) {
       if (i === expandedEntry) {
         const form = `
         <div class="edit-form" data-index="${i}">
-          <label>URL
-            <input name="url" value="${esc(e.url)}">
-          </label>
+          <div class="url-section">
+            <div class="url-header">
+              <label>URL</label>
+              <button class="url-mode" type="button">Parsed</button>
+            </div>
+            <div class="url-raw">
+              <input name="url" value="${esc(e.url)}">
+            </div>
+            <div class="url-parsed" style="display:none">
+              ${(() => {
+                try {
+                  const u = new URL(e.url);
+                  const params = [...u.searchParams.entries()];
+                  return `<input name="url-base" value="${esc(u.origin + u.pathname)}">` +
+                    (params.length ? `<div class="payload-parsed" style="margin-top:4px">${params.map(([k, v]) =>
+                      `<div class="payload-field"><label>${esc(k)}<input name="url-param" data-key="${esc(k)}" value="${esc(v)}"></label></div>`
+                    ).join("")}</div>` : "");
+                } catch {
+                  return `<input name="url-base" value="${esc(e.url)}">`;
+                }
+              })()}
+            </div>
+          </div>
           <div class="edit-row">
             <label>Method
               <select name="method">
@@ -566,12 +593,12 @@ function renderDetailEntries(entries) {
             </label>
           </div>
           ${renderPayload(e.payload)}
-          <label>Response body</label>
-          <div class="jsoneditor-container" data-index="${i}"></div>
           <div class="edit-actions">
             <button class="save" data-index="${i}">Save</button>
             <button class="cancel">Cancel</button>
           </div>
+          <label>Response body</label>
+          <div class="jsoneditor-container" data-index="${i}"></div>
         </div>`;
         return `<div class="detail-entry expanded">${row}${form}</div>`;
       }
@@ -649,6 +676,39 @@ detailView.addEventListener("click", (e) => {
 });
 
 detailEntries.addEventListener("click", (e) => {
+  const urlModeBtn = e.target.closest(".url-mode");
+  if (urlModeBtn) {
+    const section = urlModeBtn.closest(".url-section");
+    const rawDiv = section.querySelector(".url-raw");
+    const parsedDiv = section.querySelector(".url-parsed");
+    if (rawDiv.style.display !== "none") {
+      // Sync raw → parsed before switching
+      const rawUrl = rawDiv.querySelector('[name="url"]').value;
+      try {
+        const u = new URL(rawUrl);
+        parsedDiv.querySelector('[name="url-base"]').value = u.origin + u.pathname;
+        const params = parsedDiv.querySelectorAll('[name="url-param"]');
+        params.forEach(f => {
+          if (u.searchParams.has(f.dataset.key)) f.value = u.searchParams.get(f.dataset.key);
+        });
+      } catch {}
+      rawDiv.style.display = "none";
+      parsedDiv.style.display = "";
+      urlModeBtn.textContent = "Raw";
+    } else {
+      // Sync parsed → raw before switching
+      const base = parsedDiv.querySelector('[name="url-base"]').value;
+      const params = parsedDiv.querySelectorAll('[name="url-param"]');
+      const u = new URL(base);
+      params.forEach(f => u.searchParams.set(f.dataset.key, f.value));
+      rawDiv.querySelector('[name="url"]').value = u.toString();
+      parsedDiv.style.display = "none";
+      rawDiv.style.display = "";
+      urlModeBtn.textContent = "Parsed";
+    }
+    return;
+  }
+
   const toggle = e.target.closest(".payload-toggle");
   if (toggle) {
     const section = toggle.closest(".payload-section");
@@ -714,8 +774,21 @@ detailEntries.addEventListener("click", (e) => {
     } else {
       body = (form.querySelector('[name="body"]') || {}).value || "";
     }
+    let url;
+    const urlParsed = form.querySelector(".url-parsed");
+    if (urlParsed && urlParsed.style.display !== "none") {
+      try {
+        const u = new URL(urlParsed.querySelector('[name="url-base"]').value);
+        urlParsed.querySelectorAll('[name="url-param"]').forEach(f => u.searchParams.set(f.dataset.key, f.value));
+        url = u.toString();
+      } catch {
+        url = form.querySelector('[name="url"]').value;
+      }
+    } else {
+      url = form.querySelector('[name="url"]').value;
+    }
     const updates = {
-      url: form.querySelector('[name="url"]').value,
+      url,
       method: form.querySelector('[name="method"]').value,
       status: parseInt(form.querySelector('[name="status"]').value) || 200,
       kind: form.querySelector('[name="kind"]').value,
