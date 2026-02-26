@@ -56,6 +56,14 @@ function cleanUrl(url) {
   }
 }
 
+function buildUrlFromParts(base, paramFields) {
+  let qs = "";
+  paramFields.forEach(f => {
+    qs += (qs ? "&" : "?") + encodeURIComponent(f.dataset.key) + "=" + f.value;
+  });
+  return base + qs;
+}
+
 function getPath(url) {
   try {
     return new URL(url).pathname;
@@ -718,9 +726,7 @@ detailEntries.addEventListener("click", (e) => {
       // Sync parsed → raw before switching
       const base = parsedDiv.querySelector('[name="url-base"]').value;
       const params = parsedDiv.querySelectorAll('[name="url-param"]');
-      const u = new URL(base);
-      params.forEach(f => u.searchParams.set(f.dataset.key, f.value));
-      rawDiv.querySelector('[name="url"]').value = u.toString();
+      rawDiv.querySelector('[name="url"]').value = buildUrlFromParts(base, params);
       parsedDiv.style.display = "none";
       rawDiv.style.display = "";
       urlModeBtn.textContent = "Parsed";
@@ -796,13 +802,9 @@ detailEntries.addEventListener("click", (e) => {
     let url;
     const urlParsed = form.querySelector(".url-parsed");
     if (urlParsed && urlParsed.style.display !== "none") {
-      try {
-        const u = new URL(urlParsed.querySelector('[name="url-base"]').value);
-        urlParsed.querySelectorAll('[name="url-param"]').forEach(f => u.searchParams.set(f.dataset.key, f.value));
-        url = u.toString();
-      } catch {
-        url = form.querySelector('[name="url"]').value;
-      }
+      const base = urlParsed.querySelector('[name="url-base"]').value;
+      const params = urlParsed.querySelectorAll('[name="url-param"]');
+      url = buildUrlFromParts(base, params);
     } else {
       url = form.querySelector('[name="url"]').value;
     }

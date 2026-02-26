@@ -14,7 +14,12 @@
 
   function hasRouteParams(url) {
     try {
-      return new URL(url).pathname.split("/").some((s) => s.startsWith(":"));
+      const u = new URL(url);
+      if (u.pathname.split("/").some((s) => s.startsWith(":"))) return true;
+      for (const v of u.searchParams.values()) {
+        if (v.startsWith(":")) return true;
+      }
+      return false;
     } catch {
       return false;
     }
@@ -33,6 +38,15 @@
         if (pParts[i].startsWith(":")) {
           params[pParts[i]] = aParts[i];
         } else if (pParts[i] !== aParts[i]) {
+          return null;
+        }
+      }
+      // Match query params — pattern values starting with : are wildcards
+      for (const [key, pVal] of pu.searchParams) {
+        if (!au.searchParams.has(key)) return null;
+        if (pVal.startsWith(":")) {
+          params[pVal] = au.searchParams.get(key);
+        } else if (au.searchParams.get(key) !== pVal) {
           return null;
         }
       }
