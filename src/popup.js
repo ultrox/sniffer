@@ -130,6 +130,14 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function fmtSize(str) {
+  if (!str) return "—";
+  const n = str.length;
+  if (n < 1000) return `${n}B`;
+  if (n < 1000000) return `${(n / 1000).toFixed(1)}K`;
+  return `${(n / 1000000).toFixed(1)}M`;
+}
+
 function timeAgo(ts) {
   const sec = Math.floor((Date.now() - ts) / 1000);
   if (sec < 60) return "just now";
@@ -571,6 +579,7 @@ function renderDetailEntries(entries) {
         <span class="method ${e.method}">${e.method}</span>
         <span class="type">${e.kind || ""}</span>
         <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
+        <span class="size">${fmtSize(e.body)}</span>
         <span class="status ${statusClass(e.status)}">${e.status || "..."}</span>
         <span class="detail-del" data-index="${i}">x</span>
       </div>`;
