@@ -12,6 +12,7 @@ let ignorePatterns = []; // working set, saved with recording on stop
 
 // { recordingId: tabId } — supports multiple simultaneous replays
 let activeReplays = {};
+let replayHitCount = 0;
 
 let recordings = [];
 
@@ -88,6 +89,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         count: r.entries.length,
       })),
       activeReplays,
+      replayHitCount,
       recordEntries,
       recordFilters,
       ignorePatterns,
@@ -163,6 +165,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // Replay hit from content script
+  if (msg.source === "sniffer-intercept" && msg.type === "replayed") {
+    replayHitCount++;
+    updateIcon();
+    return false;
+  }
+
   // Captured entry from content script (fetch/xhr)
   if (msg.source === "sniffer-intercept" && msg.type === "captured") {
     if (recording && msg.entry) {
@@ -198,6 +207,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "stopReplay") {
     const tabId = activeReplays[msg.recordingId];
     delete activeReplays[msg.recordingId];
+    if (!hasActiveReplays()) replayHitCount = 0;
     if (tabId) syncReplayToTab(tabId);
     sendResponse({});
     updateIcon();
@@ -408,7 +418,7 @@ async function captureResource(details, cat) {
 function updateIcon() {
   let text = "";
   if (recording) text = `${recordEntries.length}`;
-  else if (hasActiveReplays()) text = "PLAY";
+  else if (hasActiveReplays()) text = `${replayHitCount}`;
   else if (sniffing) text = "ON";
 
   let color = "#999";

@@ -306,7 +306,7 @@ function refresh() {
       const names = replayIds
         .map((id) => res.recordings.find((r) => r.id === id)?.name)
         .filter(Boolean);
-      statusBar.textContent = `REPLAYING - ${names.join(", ") || "recording"}`;
+      statusBar.textContent = `REPLAYING - ${res.replayHitCount} intercepted - ${names.join(", ") || "recording"}`;
     }
 
     if (res.recording) {

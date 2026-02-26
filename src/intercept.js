@@ -128,6 +128,7 @@
     if (mode === "replay") {
       const result = findMatch(url, method);
       if (result) {
+        post({ type: "replayed" });
         const body = substituteParams(result.entry.body, result.params);
         return new Response(body, {
           status: result.entry.status,
@@ -184,6 +185,7 @@
     if (mode === "replay") {
       const result = findMatch(url, method);
       if (result) {
+        post({ type: "replayed" });
         const body = substituteParams(result.entry.body, result.params);
         Object.defineProperty(this, "readyState", { value: 4 });
         Object.defineProperty(this, "status", { value: result.entry.status });

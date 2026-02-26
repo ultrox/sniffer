@@ -4,7 +4,7 @@
 // Page -> Background
 window.addEventListener("message", (e) => {
   if (e.data?.source !== "sniffer-intercept") return;
-  chrome.runtime.sendMessage(e.data);
+  chrome.runtime.sendMessage(e.data, () => void chrome.runtime.lastError);
 });
 
 // Background -> Page
