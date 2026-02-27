@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   hasRouteParams,
   matchRoute,
+  normalizeUrl,
   substituteParams,
   findMatch,
 } from "../src/logic/matching.js";
@@ -135,5 +136,82 @@ describe("findMatch", () => {
 
   it("returns null for no match", () => {
     expect(findMatch("https://api.com/nope", "GET", entries)).toBeNull();
+  });
+});
+
+describe("normalizeUrl", () => {
+  const groups = [
+    ["https://dev.api.com", "https://staging.api.com", "https://api.com"],
+  ];
+
+  it("rewrites request URL to entry origin when in same group", () => {
+    expect(
+      normalizeUrl("https://staging.api.com/users", "https://dev.api.com/users", groups),
+    ).toBe("https://dev.api.com/users");
+  });
+
+  it("preserves path and query", () => {
+    expect(
+      normalizeUrl("https://staging.api.com/items?page=2", "https://api.com/items?page=1", groups),
+    ).toBe("https://api.com/items?page=2");
+  });
+
+  it("returns null when origins are the same", () => {
+    expect(
+      normalizeUrl("https://api.com/users", "https://api.com/users", groups),
+    ).toBeNull();
+  });
+
+  it("returns null when origins are not in the same group", () => {
+    expect(
+      normalizeUrl("https://other.com/users", "https://api.com/users", groups),
+    ).toBeNull();
+  });
+
+  it("returns null with no groups", () => {
+    expect(normalizeUrl("https://a.com/x", "https://b.com/x", [])).toBeNull();
+    expect(normalizeUrl("https://a.com/x", "https://b.com/x", null)).toBeNull();
+  });
+});
+
+describe("findMatch with origin groups", () => {
+  const entries = [
+    { url: "https://dev.api.com/users", method: "GET", body: "[]" },
+    { url: "https://dev.api.com/users/:id", method: "GET", body: "{}" },
+    { url: "https://dev.api.com/items?page=1", method: "GET", body: "items" },
+  ];
+  const groups = [
+    ["https://dev.api.com", "https://staging.api.com"],
+  ];
+
+  it("exact match across origins", () => {
+    const result = findMatch("https://staging.api.com/users", "GET", entries, groups);
+    expect(result).not.toBeNull();
+    expect(result.entry).toBe(entries[0]);
+  });
+
+  it("path match across origins", () => {
+    const result = findMatch("https://staging.api.com/items?page=1", "GET", entries, groups);
+    expect(result).not.toBeNull();
+    expect(result.entry).toBe(entries[2]);
+  });
+
+  it("parameterized route match across origins", () => {
+    const result = findMatch("https://staging.api.com/users/42", "GET", entries, groups);
+    expect(result).not.toBeNull();
+    expect(result.entry).toBe(entries[1]);
+    expect(result.params).toEqual({ ":id": "42" });
+  });
+
+  it("does not match across origins without groups", () => {
+    expect(
+      findMatch("https://staging.api.com/users", "GET", entries),
+    ).toBeNull();
+  });
+
+  it("does not match origins not in any group", () => {
+    expect(
+      findMatch("https://other.com/users", "GET", entries, groups),
+    ).toBeNull();
   });
 });

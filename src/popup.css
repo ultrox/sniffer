@@ -39,6 +39,79 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 .ignore-tag .remove { cursor: pointer; opacity: 0.6; }
 .ignore-tag .remove:hover { opacity: 1; }
 
+/* Origin groups */
+.origin-groups { padding: 4px 8px; border-bottom: 1px solid #333; }
+.origin-groups:empty { display: none; padding: 0; border: none; }
+.origin-group {
+  display: flex; flex-direction: column; gap: 2px; padding: 4px 0;
+}
+.origin-group + .origin-group { border-top: 1px solid #2a2a3e; }
+.origin-group-header {
+  display: flex; align-items: center; gap: 4px;
+}
+.origin-group-toggle {
+  cursor: pointer; color: #888; font-size: 10px; width: 12px; text-align: center;
+  user-select: none;
+}
+.origin-group-toggle:hover { color: #e0e0e0; }
+.origin-group-summary { font-size: 10px; color: #555; }
+.origin-group-name {
+  width: 120px; padding: 2px 6px;
+  background: #2a2a3e; border: 1px solid #444; border-radius: 4px;
+  color: #e0e0e0; font: 10px monospace; outline: none;
+}
+.origin-group-name:focus { border-color: #3498db; }
+.origin-group .del-group { color: #e74c3c; cursor: pointer; font-size: 10px; opacity: 0.6; padding: 0 4px; }
+.origin-group .del-group:hover { opacity: 1; }
+.origin-mapping {
+  display: flex; align-items: center; gap: 4px; padding: 1px 0 1px 12px;
+}
+.origin-mapping input {
+  flex: 1; min-width: 80px; padding: 2px 6px;
+  background: #2a2a3e; border: 1px solid #444; border-radius: 4px;
+  color: #e0e0e0; font: 10px monospace; outline: none;
+}
+.origin-mapping input:focus { border-color: #3498db; }
+.origin-mapping-arrow { color: #3498db; font-size: 10px; flex-shrink: 0; }
+.origin-mapping-del { color: #e74c3c; cursor: pointer; font-size: 10px; opacity: 0.6; padding: 0 4px; }
+.origin-mapping-del:hover { opacity: 1; }
+.origin-mapping-add {
+  display: inline-block; padding: 1px 8px; margin-left: 12px;
+  border: 1px dashed #444; border-radius: 4px;
+  background: transparent; color: #555; cursor: pointer; font: 10px monospace;
+  align-self: flex-start;
+}
+.origin-mapping-add:hover { border-color: #3498db; color: #3498db; }
+.origin-groups-add {
+  display: inline-block; padding: 2px 8px; margin-top: 2px;
+  border: 1px dashed #444; border-radius: 4px;
+  background: transparent; color: #666; cursor: pointer; font: 10px monospace;
+}
+.origin-groups-add:hover { border-color: #666; color: #e0e0e0; }
+
+/* Detail origin groups (per-recording assignment) */
+.detail-origin-groups { padding: 4px 8px; flex-wrap: wrap; }
+.detail-origin-groups:empty { display: none; }
+.detail-og-chip {
+  display: inline-block; padding: 2px 8px; margin: 0 4px 4px 0;
+  border: 1px solid #444; border-radius: 10px;
+  font-size: 10px; cursor: pointer; user-select: none;
+  background: #2a2a3e; color: #888;
+}
+.detail-og-chip:hover { border-color: #3498db; color: #e0e0e0; }
+.detail-og-chip.on { background: #1a2a3e; color: #3498db; border-color: #3498db; }
+.detail-og-expand {
+  display: block; font-size: 10px; color: #555; cursor: pointer;
+  user-select: none; padding: 2px 0;
+}
+.detail-og-expand:hover { color: #3498db; }
+.detail-og-mappings { padding: 2px 0 0; }
+.detail-og-mapping {
+  display: flex; align-items: center; gap: 4px;
+  padding: 1px 0 1px 4px; font-size: 10px; color: #888;
+}
+.detail-og-mapping span { color: #3498db; }
+
 /* Status bar */
 .status-bar {
   display: none; padding: 6px 12px;

@@ -11,11 +11,36 @@ export function hasRouteParams(url) {
   }
 }
 
-export function matchRoute(patternUrl, actualUrl) {
+export function normalizeUrl(requestUrl, entryUrl, originGroups) {
+  if (!originGroups || originGroups.length === 0) return null;
+  try {
+    const ru = new URL(requestUrl);
+    const eu = new URL(entryUrl);
+    if (ru.origin === eu.origin) return null;
+    for (const group of originGroups) {
+      if (group.includes(ru.origin) && group.includes(eu.origin)) {
+        return eu.origin + ru.pathname + ru.search + ru.hash;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export function matchRoute(patternUrl, actualUrl, originGroups) {
   try {
     const pu = new URL(patternUrl);
     const au = new URL(actualUrl);
-    if (pu.origin !== au.origin) return null;
+    if (pu.origin !== au.origin) {
+      if (!originGroups || originGroups.length === 0) return null;
+      let inSameGroup = false;
+      for (const group of originGroups) {
+        if (group.includes(pu.origin) && group.includes(au.origin)) {
+          inSameGroup = true;
+          break;
+        }
+      }
+      if (!inSameGroup) return null;
+    }
     const pParts = pu.pathname.split("/");
     const aParts = au.pathname.split("/");
     if (pParts.length !== aParts.length) return null;
@@ -51,12 +76,21 @@ export function substituteParams(text, params) {
   return result;
 }
 
-export function findMatch(url, method, replayEntries) {
+export function findMatch(url, method, replayEntries, originGroups) {
   // 1. Exact match
   const exact = replayEntries.find(
     (e) => e.url === url && e.method === method,
   );
   if (exact) return { entry: exact, params: null };
+
+  // 1b. Exact match via origin groups
+  if (originGroups && originGroups.length > 0) {
+    for (const e of replayEntries) {
+      if (e.method !== method) continue;
+      const norm = normalizeUrl(url, e.url, originGroups);
+      if (norm && norm === e.url) return { entry: e, params: null };
+    }
+  }
 
   // 2. Match ignoring query param order / extra params
   try {
@@ -66,7 +100,16 @@ export function findMatch(url, method, replayEntries) {
 
     const candidates = replayEntries.filter((e) => {
       try {
-        return new URL(e.url).pathname === path && e.method === method;
+        const eu = new URL(e.url);
+        if (eu.pathname === path && e.method === method) {
+          if (eu.origin === u.origin) return true;
+          if (originGroups) {
+            for (const group of originGroups) {
+              if (group.includes(u.origin) && group.includes(eu.origin)) return true;
+            }
+          }
+        }
+        return false;
       } catch {
         return false;
       }
@@ -95,7 +138,7 @@ export function findMatch(url, method, replayEntries) {
   // 3. Parameterized route match
   for (const e of replayEntries) {
     if (e.method !== method || !hasRouteParams(e.url)) continue;
-    const matched = matchRoute(e.url, url);
+    const matched = matchRoute(e.url, url, originGroups);
     if (matched) return { entry: e, params: matched };
   }
 

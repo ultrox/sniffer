@@ -28,6 +28,9 @@ import {
   handleRenameVariant,
   handleReplayed,
   handleWebRequestBefore,
+  handleSetOriginGroups,
+  handleSetRecordingOriginGroups,
+  activeOriginGroupsForRecording,
   hasActiveReplays,
   getStateSnapshot,
   TYPE_MAP,
@@ -589,6 +592,138 @@ describe("hasActiveReplays", () => {
   });
 });
 
+describe("handleSetOriginGroups", () => {
+  it("sets origin groups with mappings shape", () => {
+    const state = createInitialState();
+    const groups = [{ id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] }];
+    const next = handleSetOriginGroups(state, groups);
+    expect(next.originGroups).toEqual(groups);
+  });
+
+  it("replaces existing groups", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [{ id: "g1", name: "Old", mappings: [["https://old.com", "https://old2.com"]] }],
+    };
+    const groups = [{ id: "g2", name: "New", mappings: [["https://new.com", "https://new2.com"]] }];
+    const next = handleSetOriginGroups(state, groups);
+    expect(next.originGroups).toEqual(groups);
+  });
+
+  it("defaults to empty array for non-array input", () => {
+    const state = createInitialState();
+    expect(handleSetOriginGroups(state, null).originGroups).toEqual([]);
+    expect(handleSetOriginGroups(state, "bad").originGroups).toEqual([]);
+  });
+});
+
+describe("handleSetRecordingOriginGroups", () => {
+  it("sets originGroupIds on recording", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{ id: "r1", name: "Rec", entries: [] }],
+    };
+    const next = handleSetRecordingOriginGroups(state, "r1", ["g1", "g2"]);
+    expect(next.recordings[0].originGroupIds).toEqual(["g1", "g2"]);
+  });
+
+  it("replaces existing groupIds", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{ id: "r1", name: "Rec", entries: [], originGroupIds: ["g1"] }],
+    };
+    const next = handleSetRecordingOriginGroups(state, "r1", ["g2"]);
+    expect(next.recordings[0].originGroupIds).toEqual(["g2"]);
+  });
+
+  it("does not affect other recordings", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [
+        { id: "r1", name: "A", entries: [] },
+        { id: "r2", name: "B", entries: [], originGroupIds: ["g1"] },
+      ],
+    };
+    const next = handleSetRecordingOriginGroups(state, "r1", ["g2"]);
+    expect(next.recordings[0].originGroupIds).toEqual(["g2"]);
+    expect(next.recordings[1].originGroupIds).toEqual(["g1"]);
+  });
+
+  it("defaults to empty array for non-array input", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{ id: "r1", name: "Rec", entries: [] }],
+    };
+    const next = handleSetRecordingOriginGroups(state, "r1", null);
+    expect(next.recordings[0].originGroupIds).toEqual([]);
+  });
+});
+
+describe("activeOriginGroupsForRecording", () => {
+  it("resolves group IDs to mapping pairs", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [
+        { id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] },
+        { id: "g2", name: "Auth", mappings: [["https://auth.com", "https://dev-auth.com"]] },
+      ],
+      recordings: [{ id: "r1", name: "Rec", entries: [], originGroupIds: ["g1"] }],
+    };
+    const result = activeOriginGroupsForRecording(state, "r1");
+    expect(result).toEqual([["https://a.com", "https://b.com"]]);
+  });
+
+  it("returns all mappings from multiple groups", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [
+        { id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"], ["https://a.com", "https://c.com"]] },
+        { id: "g2", name: "Auth", mappings: [["https://auth.com", "https://dev-auth.com"]] },
+      ],
+      recordings: [{ id: "r1", name: "Rec", entries: [], originGroupIds: ["g1", "g2"] }],
+    };
+    const result = activeOriginGroupsForRecording(state, "r1");
+    expect(result).toEqual([
+      ["https://a.com", "https://b.com"],
+      ["https://a.com", "https://c.com"],
+      ["https://auth.com", "https://dev-auth.com"],
+    ]);
+  });
+
+  it("returns empty array when no groups assigned", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [{ id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] }],
+      recordings: [{ id: "r1", name: "Rec", entries: [] }],
+    };
+    expect(activeOriginGroupsForRecording(state, "r1")).toEqual([]);
+  });
+
+  it("skips missing group IDs", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [{ id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] }],
+      recordings: [{ id: "r1", name: "Rec", entries: [], originGroupIds: ["g1", "g999"] }],
+    };
+    const result = activeOriginGroupsForRecording(state, "r1");
+    expect(result).toEqual([["https://a.com", "https://b.com"]]);
+  });
+
+  it("returns empty array for unknown recording", () => {
+    const state = createInitialState();
+    expect(activeOriginGroupsForRecording(state, "unknown")).toEqual([]);
+  });
+
+  it("handles groups with missing mappings field", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [{ id: "g1", name: "API" }],
+      recordings: [{ id: "r1", name: "Rec", entries: [], originGroupIds: ["g1"] }],
+    };
+    expect(activeOriginGroupsForRecording(state, "r1")).toEqual([]);
+  });
+});
+
 describe("getStateSnapshot", () => {
   it("returns summary with recording counts", () => {
     const state = {
@@ -600,5 +735,25 @@ describe("getStateSnapshot", () => {
     const snap = getStateSnapshot(state);
     expect(snap.recordings[0].count).toBe(2);
     expect(snap.recordings[0].entries).toBeUndefined();
+  });
+
+  it("includes originGroups", () => {
+    const state = {
+      ...createInitialState(),
+      originGroups: [{ id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] }],
+    };
+    const snap = getStateSnapshot(state);
+    expect(snap.originGroups).toEqual([{ id: "g1", name: "API", mappings: [["https://a.com", "https://b.com"]] }]);
+  });
+
+  it("includes originGroupIds in recording summaries", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [
+        { id: "1", name: "R1", timestamp: 100, sourceUrl: "https://a.com", entries: [], originGroupIds: ["g1"] },
+      ],
+    };
+    const snap = getStateSnapshot(state);
+    expect(snap.recordings[0].originGroupIds).toEqual(["g1"]);
   });
 });

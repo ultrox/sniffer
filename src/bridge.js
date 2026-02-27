@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener((msg) => {
         if (msg.mode === "replay") {
           localStorage.setItem(
             "__sniffer__",
-            JSON.stringify({ mode: msg.mode, entries: msg.entries || [] })
+            JSON.stringify({ mode: msg.mode, entries: msg.entries || [], originGroups: msg.originGroups || [] })
           );
         } else {
           localStorage.removeItem("__sniffer__");
@@ -41,6 +41,7 @@ chrome.runtime.sendMessage(
           type: "setMode",
           mode: res.mode,
           entries: res.entries || [],
+          originGroups: res.originGroups || [],
         },
         "*"
       );

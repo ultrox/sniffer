@@ -20,6 +20,9 @@ import {
   handleDeleteEntry,
   handleAddRecordingIgnore,
   handleRemoveRecordingIgnore,
+  handleSetOriginGroups,
+  handleSetRecordingOriginGroups,
+  activeOriginGroupsForRecording,
   handleSetActiveVariant,
   handleAddVariant,
   handleDeleteVariant,
@@ -37,12 +40,13 @@ let state = createInitialState();
 
 const storageReady = new Promise((resolve) => {
   chrome.storage.local.get(
-    ["recordings", "recordFilters", "ignorePatterns", "activeReplays"],
+    ["recordings", "recordFilters", "ignorePatterns", "activeReplays", "originGroups"],
     (res) => {
       if (res.recordings) state.recordings = res.recordings;
       if (res.recordFilters) state.recordFilters = res.recordFilters;
       if (res.ignorePatterns) state.ignorePatterns = res.ignorePatterns;
       if (res.activeReplays) state.activeReplays = res.activeReplays;
+      if (res.originGroups) state.originGroups = res.originGroups;
       updateIcon();
       resolve();
     },
@@ -55,21 +59,39 @@ function persist(...keys) {
   chrome.storage.local.set(data);
 }
 
-function sendToTab(tabId, mode, entries) {
+function sendToTab(tabId, mode, entries, originGroups) {
   chrome.tabs.sendMessage(tabId, {
     source: "sniffer-bg",
     type: "setMode",
     mode,
     entries,
+    originGroups: originGroups || [],
   });
+}
+
+function resolvedOriginGroupsForTab(state, tabId) {
+  const groups = [];
+  const seen = new Set();
+  for (const [recId, tid] of Object.entries(state.activeReplays)) {
+    if (tid !== tabId) continue;
+    for (const origins of activeOriginGroupsForRecording(state, recId)) {
+      const key = origins.join("\0");
+      if (!seen.has(key)) {
+        seen.add(key);
+        groups.push(origins);
+      }
+    }
+  }
+  return groups;
 }
 
 function syncReplayToTab(tabId) {
   const entries = mergedReplayEntries(state, tabId);
+  const originGroups = resolvedOriginGroupsForTab(state, tabId);
   if (entries.length > 0) {
-    sendToTab(tabId, "replay", entries);
+    sendToTab(tabId, "replay", entries, originGroups);
   } else {
-    sendToTab(tabId, null, []);
+    sendToTab(tabId, null, [], []);
   }
 }
 
@@ -117,6 +139,26 @@ function handleMessage(msg, sender, sendResponse) {
     state = handleRemoveIgnore(state, msg.pattern);
     persist("ignorePatterns");
     sendResponse({ ignorePatterns: state.ignorePatterns });
+    return true;
+  }
+
+  if (msg.type === "setOriginGroups") {
+    state = handleSetOriginGroups(state, msg.groups);
+    persist("originGroups");
+    // Re-sync any active replay tabs with updated origin groups
+    for (const tabId of new Set(Object.values(state.activeReplays))) {
+      syncReplayToTab(tabId);
+    }
+    sendResponse({ originGroups: state.originGroups });
+    return true;
+  }
+
+  if (msg.type === "setRecordingOriginGroups") {
+    state = handleSetRecordingOriginGroups(state, msg.recordingId, msg.groupIds);
+    persist("recordings");
+    const tabId = state.activeReplays[msg.recordingId];
+    if (tabId) syncReplayToTab(tabId);
+    sendResponse({});
     return true;
   }
 
@@ -333,11 +375,12 @@ function handleMessage(msg, sender, sendResponse) {
     const tabId = sender.tab?.id;
     const entries = mergedReplayEntries(state, tabId);
     if (entries.length > 0) {
-      sendResponse({ mode: "replay", entries });
+      const originGroups = resolvedOriginGroupsForTab(state, tabId);
+      sendResponse({ mode: "replay", entries, originGroups });
     } else if (state.recording && tabId === state.recordTabId) {
-      sendResponse({ mode: "record", entries: [] });
+      sendResponse({ mode: "record", entries: [], originGroups: [] });
     } else {
-      sendResponse({ mode: null });
+      sendResponse({ mode: null, originGroups: [] });
     }
     return;
   }

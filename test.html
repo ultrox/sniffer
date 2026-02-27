@@ -49,6 +49,12 @@
     <a href="test/items.html" style="color:#3b82f6;text-decoration:none;padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px">Items</a>
   </nav>
 
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:24px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px">
+    <span style="font-weight:600;white-space:nowrap">Origin:</span>
+    <div class="buttons" id="originButtons" style="margin:0"></div>
+    <input id="originInput" value="https://pokeapi.co" style="flex:1;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font:13px system-ui,sans-serif;min-width:200px">
+  </div>
+
   <h2>Pokédex</h2>
   <div class="buttons" id="buttons"></div>
   <div class="card" id="card">
@@ -62,6 +68,37 @@
   </div>
 
   <script>
+    // --- Origin picker ---
+    const originPresets = [
+      "https://pokeapi.co",
+      "https://staging.pokeapi.co",
+      "https://dev.pokeapi.co",
+      "https://beta.pokeapi.co",
+    ];
+    const originButtons = document.getElementById("originButtons");
+    const originInput = document.getElementById("originInput");
+
+    function getOrigin() { return originInput.value.trim() || "https://pokeapi.co"; }
+
+    originPresets.forEach(o => {
+      const btn = document.createElement("button");
+      btn.textContent = o.replace("https://", "");
+      btn.style.fontSize = "11px";
+      if (o === originInput.value) btn.classList.add("active");
+      btn.onclick = () => {
+        originInput.value = o;
+        originButtons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      };
+      originButtons.appendChild(btn);
+    });
+
+    originInput.addEventListener("input", () => {
+      originButtons.querySelectorAll("button").forEach(b => {
+        b.classList.toggle("active", b.textContent === originInput.value.replace("https://", ""));
+      });
+    });
+
     const pokemon = [
       { id: 1, name: "Bulbasaur" },
       { id: 4, name: "Charmander" },
@@ -96,7 +133,7 @@
       card.classList.add("loading");
       card.innerHTML = '<div class="placeholder">Loading...</div>';
 
-      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const res = await fetch(`${getOrigin()}/api/v2/pokemon/${id}`);
       const text = await res.text();
       card.classList.remove("loading");
 
@@ -138,18 +175,18 @@
     const qpCard = document.getElementById("qpCard");
 
     const qpTests = [
-      { label: "Berries (limit=5)", url: "https://pokeapi.co/api/v2/berry?limit=5&offset=0" },
-      { label: "Berries (limit=3, offset=10)", url: "https://pokeapi.co/api/v2/berry?limit=3&offset=10" },
-      { label: "Pokémon list (limit=4)", url: "https://pokeapi.co/api/v2/pokemon?limit=4&offset=0" },
-      { label: "Pokémon list (limit=2, offset=50)", url: "https://pokeapi.co/api/v2/pokemon?limit=2&offset=50" },
-      { label: "Items (limit=6)", url: "https://pokeapi.co/api/v2/item?limit=6&offset=0" },
-      { label: "Moves (limit=3, offset=100)", url: "https://pokeapi.co/api/v2/move?limit=3&offset=100" },
+      { label: "Berries (limit=5)", path: "/api/v2/berry?limit=5&offset=0" },
+      { label: "Berries (limit=3, offset=10)", path: "/api/v2/berry?limit=3&offset=10" },
+      { label: "Pokémon list (limit=4)", path: "/api/v2/pokemon?limit=4&offset=0" },
+      { label: "Pokémon list (limit=2, offset=50)", path: "/api/v2/pokemon?limit=2&offset=50" },
+      { label: "Items (limit=6)", path: "/api/v2/item?limit=6&offset=0" },
+      { label: "Moves (limit=3, offset=100)", path: "/api/v2/move?limit=3&offset=100" },
     ];
 
     qpTests.forEach(t => {
       const btn = document.createElement("button");
       btn.textContent = t.label;
-      btn.onclick = () => fetchQP(t.url, btn);
+      btn.onclick = () => fetchQP(getOrigin() + t.path, btn);
       qpButtons.appendChild(btn);
     });
 

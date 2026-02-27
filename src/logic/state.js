@@ -43,6 +43,7 @@ export function createInitialState() {
     activeReplays: {},
     replayHitCount: 0,
     recordings: [],
+    originGroups: [],
   };
 }
 
@@ -74,6 +75,26 @@ export function handleRemoveIgnore(state, pattern) {
     ...state,
     ignorePatterns: state.ignorePatterns.filter((p) => p !== pattern),
   };
+}
+
+export function handleSetOriginGroups(state, groups) {
+  return { ...state, originGroups: Array.isArray(groups) ? groups : [] };
+}
+
+export function handleSetRecordingOriginGroups(state, recordingId, groupIds) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    return { ...r, originGroupIds: Array.isArray(groupIds) ? groupIds : [] };
+  });
+  return { ...state, recordings };
+}
+
+export function activeOriginGroupsForRecording(state, recordingId) {
+  const rec = state.recordings.find((r) => r.id === recordingId);
+  if (!rec || !rec.originGroupIds || rec.originGroupIds.length === 0) return [];
+  return state.originGroups
+    .filter((g) => rec.originGroupIds.includes(g.id))
+    .flatMap((g) => g.mappings || []);
 }
 
 export function handleStartRecord(state, filters, targetId) {
@@ -415,11 +436,27 @@ export function getStateSnapshot(state) {
       timestamp: r.timestamp,
       sourceUrl: r.sourceUrl,
       count: r.entries.length,
+      originGroupIds: r.originGroupIds || [],
     })),
     activeReplays: state.activeReplays,
     replayHitCount: state.replayHitCount,
     recordEntries: state.recordEntries,
     recordFilters: state.recordFilters,
     ignorePatterns: state.ignorePatterns,
+    originGroups: state.originGroups,
+    knownOrigins: extractKnownOrigins(state),
   };
+}
+
+export function extractKnownOrigins(state) {
+  const origins = new Set();
+  for (const rec of state.recordings) {
+    if (!rec.entries) continue;
+    for (const entry of rec.entries) {
+      try {
+        origins.add(new URL(entry.url).origin);
+      } catch {}
+    }
+  }
+  return [...origins].sort();
 }

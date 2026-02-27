@@ -6,6 +6,7 @@ import {
 (function () {
   let mode = null;
   let replayEntries = [];
+  let originGroups = [];
 
   const origFetch = window.fetch;
   const origXHROpen = XMLHttpRequest.prototype.open;
@@ -18,7 +19,7 @@ import {
   }
 
   function doFindMatch(url, method) {
-    return findMatch(url, method, replayEntries);
+    return findMatch(url, method, replayEntries, originGroups);
   }
 
   // --- Patch fetch ---
@@ -143,6 +144,7 @@ import {
       const data = JSON.parse(cached);
       mode = data.mode;
       replayEntries = data.entries || [];
+      originGroups = data.originGroups || [];
     }
   } catch {}
 
@@ -152,6 +154,7 @@ import {
     if (e.data.type === "setMode") {
       mode = e.data.mode;
       replayEntries = e.data.entries || [];
+      originGroups = e.data.originGroups || [];
     }
   });
 })();

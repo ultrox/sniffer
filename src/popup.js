@@ -19,6 +19,7 @@ const clearBtn = document.getElementById("clear");
 const countEl = document.getElementById("count");
 const filtersEl = document.getElementById("filters");
 const ignoreBar = document.getElementById("ignoreBar");
+const originGroupsEl = document.getElementById("originGroups");
 const statusBar = document.getElementById("statusBar");
 const requestsEl = document.getElementById("requests");
 const recCountEl = document.getElementById("recCount");
@@ -31,6 +32,7 @@ const detailEntries = document.getElementById("detailEntries");
 const detailRecordBtn = document.getElementById("detailRecordBtn");
 const detailReplayBtn = document.getElementById("detailReplayBtn");
 const detailSortBtn = document.getElementById("detailSortBtn");
+const detailOriginGroupsEl = document.getElementById("detailOriginGroups");
 
 // --- State ---
 const ALL_TYPES = [
@@ -45,6 +47,8 @@ const ALL_TYPES = [
 ];
 let activeFilters = ["xhr", "fetch"];
 let ignorePatterns = [];
+let originGroups = [];
+let knownOrigins = [];
 let currentView = "main";
 let detailRecordingId = null;
 let expandedEntry = -1;
@@ -166,6 +170,150 @@ ignoreBar.addEventListener("click", (e) => {
   });
 });
 
+// --- Origin groups ---
+const expandedGroups = new Set();
+
+function renderOriginGroups() {
+  const datalistId = "knownOriginsList";
+  const datalist = `<datalist id="${datalistId}">${knownOrigins.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>`;
+
+  if (originGroups.length === 0) {
+    originGroupsEl.innerHTML = datalist + `<button class="origin-groups-add">+ Origin group</button>`;
+    return;
+  }
+  originGroupsEl.innerHTML =
+    datalist +
+    originGroups
+      .map((group) => {
+        const expanded = expandedGroups.has(group.id);
+        const count = (group.mappings || []).length;
+        const arrow = expanded ? "v" : ">";
+        const summary = !expanded && count > 0
+          ? `<span class="origin-group-summary">${count} mapping${count > 1 ? "s" : ""}</span>`
+          : "";
+        let body = "";
+        if (expanded) {
+          const mappings = (group.mappings || [])
+            .map(
+              (m, i) =>
+                `<div class="origin-mapping" data-gid="${esc(group.id)}" data-mi="${i}">` +
+                `<input class="origin-mapping-left" value="${esc(m[0] || "")}" placeholder="https://..." list="${datalistId}">` +
+                `<span class="origin-mapping-arrow">↔</span>` +
+                `<input class="origin-mapping-right" value="${esc(m[1] || "")}" placeholder="https://..." list="${datalistId}">` +
+                `<span class="origin-mapping-del">x</span>` +
+                `</div>`,
+            )
+            .join("");
+          body = mappings + `<button class="origin-mapping-add" data-id="${esc(group.id)}">+ mapping</button>`;
+        }
+        return (
+          `<div class="origin-group" data-id="${esc(group.id)}">` +
+          `<div class="origin-group-header">` +
+          `<span class="origin-group-toggle" data-id="${esc(group.id)}">${arrow}</span>` +
+          `<input class="origin-group-name" value="${esc(group.name)}" placeholder="Group name..." data-id="${esc(group.id)}">` +
+          summary +
+          `<span class="del-group" data-id="${esc(group.id)}">x</span>` +
+          `</div>` +
+          body +
+          `</div>`
+        );
+      })
+      .join("") +
+    `<button class="origin-groups-add">+ Origin group</button>`;
+}
+
+function syncOriginGroups() {
+  chrome.runtime.sendMessage(
+    { type: "setOriginGroups", groups: originGroups },
+    (res) => {
+      if (res?.originGroups) originGroups = res.originGroups;
+    },
+  );
+}
+
+originGroupsEl.addEventListener("click", (e) => {
+  if (e.target.closest(".origin-group-toggle")) {
+    const groupId = e.target.closest(".origin-group-toggle").dataset.id;
+    if (expandedGroups.has(groupId)) expandedGroups.delete(groupId);
+    else expandedGroups.add(groupId);
+    renderOriginGroups();
+    return;
+  }
+  if (e.target.closest(".origin-groups-add")) {
+    const id = "g" + Date.now();
+    originGroups = [...originGroups, { id, name: "", mappings: [] }];
+    expandedGroups.add(id);
+    renderOriginGroups();
+    syncOriginGroups();
+    const nameInput = originGroupsEl.querySelector(`.origin-group-name[data-id="${id}"]`);
+    if (nameInput) nameInput.focus();
+    return;
+  }
+  if (e.target.closest(".origin-mapping-add")) {
+    const groupId = e.target.closest(".origin-mapping-add").dataset.id;
+    originGroups = originGroups.map((g) =>
+      g.id === groupId ? { ...g, mappings: [...(g.mappings || []), ["", ""]] } : g,
+    );
+    renderOriginGroups();
+    syncOriginGroups();
+    const lastRow = originGroupsEl.querySelector(`.origin-group[data-id="${groupId}"] .origin-mapping:last-of-type .origin-mapping-left`);
+    if (lastRow) lastRow.focus();
+    return;
+  }
+  if (e.target.closest(".origin-mapping-del")) {
+    const row = e.target.closest(".origin-mapping");
+    const groupId = row.dataset.gid;
+    const mi = parseInt(row.dataset.mi, 10);
+    originGroups = originGroups.map((g) =>
+      g.id === groupId ? { ...g, mappings: g.mappings.filter((_, i) => i !== mi) } : g,
+    );
+    renderOriginGroups();
+    syncOriginGroups();
+    return;
+  }
+  const del = e.target.closest(".del-group");
+  if (del) {
+    const groupId = del.dataset.id;
+    originGroups = originGroups.filter((g) => g.id !== groupId);
+    renderOriginGroups();
+    syncOriginGroups();
+    return;
+  }
+});
+
+originGroupsEl.addEventListener("change", (e) => {
+  const nameInput = e.target.closest(".origin-group-name");
+  if (nameInput) {
+    const groupId = nameInput.dataset.id;
+    const name = nameInput.value.trim();
+    originGroups = originGroups.map((g) =>
+      g.id === groupId ? { ...g, name } : g,
+    );
+    syncOriginGroups();
+    return;
+  }
+  const left = e.target.closest(".origin-mapping-left");
+  const right = e.target.closest(".origin-mapping-right");
+  if (left || right) {
+    const row = e.target.closest(".origin-mapping");
+    const groupId = row.dataset.gid;
+    const mi = parseInt(row.dataset.mi, 10);
+    originGroups = originGroups.map((g) => {
+      if (g.id !== groupId) return g;
+      const mappings = g.mappings.map((m, i) => {
+        if (i !== mi) return m;
+        const pair = [...m];
+        if (left) pair[0] = left.value.trim();
+        if (right) pair[1] = right.value.trim();
+        return pair;
+      });
+      return { ...g, mappings };
+    });
+    syncOriginGroups();
+    return;
+  }
+});
+
 // --- Request list ---
 function renderRequests(items) {
   countEl.textContent = `${items.length} req`;
@@ -249,6 +397,17 @@ function refresh() {
     ) {
       ignorePatterns = res.ignorePatterns || [];
       renderIgnoreBar();
+    }
+
+    const newKnown = res.knownOrigins || [];
+    const originsChanged =
+      JSON.stringify(originGroups) !== JSON.stringify(res.originGroups || []);
+    const knownChanged =
+      JSON.stringify(knownOrigins) !== JSON.stringify(newKnown);
+    if (originsChanged || knownChanged) {
+      originGroups = res.originGroups || [];
+      knownOrigins = newKnown;
+      renderOriginGroups();
     }
 
     toggleBtn.classList.toggle("active", res.sniffing);
@@ -511,6 +670,61 @@ function updateDetailButtons() {
 }
 
 let detailAllEntries = [];
+let detailOriginGroupIds = [];
+
+let detailOgExpanded = false;
+
+function renderDetailOriginGroups() {
+  if (originGroups.length === 0) {
+    detailOriginGroupsEl.innerHTML = "";
+    return;
+  }
+  const chips = originGroups
+    .map((g) => {
+      const active = detailOriginGroupIds.includes(g.id);
+      return `<span class="detail-og-chip${active ? " on" : ""}" data-id="${esc(g.id)}">${esc(g.name || g.id)}</span>`;
+    })
+    .join("");
+  const activeGroups = originGroups.filter((g) => detailOriginGroupIds.includes(g.id));
+  const hasActive = activeGroups.some((g) => (g.mappings || []).length > 0);
+  let expandHtml = "";
+  if (hasActive) {
+    const arrow = detailOgExpanded ? "v" : ">";
+    expandHtml += `<span class="detail-og-expand">${arrow} mappings</span>`;
+    if (detailOgExpanded) {
+      expandHtml += `<div class="detail-og-mappings">${activeGroups
+        .flatMap((g) =>
+          (g.mappings || []).map(
+            (m) => `<div class="detail-og-mapping"><span>${esc(m[0] || "")}</span> <span class="origin-mapping-arrow">↔</span> <span>${esc(m[1] || "")}</span></div>`,
+          ),
+        )
+        .join("")}</div>`;
+    }
+  }
+  detailOriginGroupsEl.innerHTML = chips + expandHtml;
+}
+
+detailOriginGroupsEl.addEventListener("click", (e) => {
+  if (e.target.closest(".detail-og-expand")) {
+    detailOgExpanded = !detailOgExpanded;
+    renderDetailOriginGroups();
+    return;
+  }
+  const chip = e.target.closest(".detail-og-chip");
+  if (!chip) return;
+  const groupId = chip.dataset.id;
+  if (detailOriginGroupIds.includes(groupId)) {
+    detailOriginGroupIds = detailOriginGroupIds.filter((id) => id !== groupId);
+  } else {
+    detailOriginGroupIds = [...detailOriginGroupIds, groupId];
+  }
+  renderDetailOriginGroups();
+  chrome.runtime.sendMessage({
+    type: "setRecordingOriginGroups",
+    recordingId: detailRecordingId,
+    groupIds: detailOriginGroupIds,
+  });
+});
 
 function loadDetail() {
   chrome.runtime.sendMessage(
@@ -535,16 +749,23 @@ function loadDetail() {
         if (renameInput) renameInput.replaceWith(span);
       }
 
+      detailOriginGroupIds = rec.originGroupIds || [];
+
       // Merge live recordEntries when recording into this recording
       chrome.runtime.sendMessage({ type: "getState" }, (res) => {
         let entries = rec.entries;
         if (res?.recording && res.recordTargetId === detailRecordingId) {
           entries = [...rec.entries, ...res.recordEntries];
         }
+        if (res) {
+          originGroups = res.originGroups || [];
+          knownOrigins = res.knownOrigins || [];
+        }
         detailCount.textContent = `${entries.length} req`;
         detailAllEntries = entries;
         applyDetailFilters();
         updateDetailButtons();
+        renderDetailOriginGroups();
       });
     },
   );
@@ -1283,6 +1504,7 @@ detailEntries.addEventListener("click", (e) => {
 // --- Init ---
 renderFilters();
 renderIgnoreBar();
+renderOriginGroups();
 refresh();
 setInterval(() => {
   if (currentView === "main") {
