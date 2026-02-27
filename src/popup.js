@@ -1304,19 +1304,19 @@ detailEntries.addEventListener("click", (e) => {
     const input = document.createElement("input");
     input.className = "variant-rename";
     input.value = currentName;
-    // Capture tab width before replacing contents so input matches
+    // Lock tab to its current width so removing edit/x buttons causes no shift
     const tabWidth = tab.offsetWidth;
+    tab.style.width = tabWidth + "px";
     // Replace tab contents with input
     tab.innerHTML = "";
-    tab.classList.add("editing");
     tab.appendChild(input);
-    input.style.minWidth = tabWidth + "px";
-    const sizeToContent = () => {
-      input.style.width = "0";
-      input.style.width = input.scrollWidth + "px";
-    };
-    sizeToContent();
-    input.addEventListener("input", sizeToContent);
+    input.size = currentName.length || 1;
+    input.addEventListener("input", () => {
+      input.size = input.value.length || 1;
+      // If input outgrows the locked width, let tab expand
+      tab.style.width = "";
+      tab.style.minWidth = tabWidth + "px";
+    });
     input.focus();
     input.select();
     const commit = () => {

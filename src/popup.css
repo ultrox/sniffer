@@ -290,7 +290,7 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 }
 .edit-form label { display: block; font-size: 10px; color: #888; margin-top: 6px; text-transform: uppercase; }
 .edit-form label:first-child { margin-top: 0; }
-.edit-form input, .edit-form textarea, .edit-form select {
+.edit-form input:not(.variant-rename), .edit-form textarea, .edit-form select {
   width: 100%; padding: 4px 8px; margin-top: 2px;
   background: #1a1a2e; border: 1px solid #444; border-radius: 3px;
   color: #e0e0e0; font: 12px monospace;
@@ -403,12 +403,8 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 .variant-picker-row button.import-added {
   border-color: #444; background: transparent; color: #666; cursor: default;
 }
-.variant-tab.editing {
-  padding: 0; border-color: transparent; background: transparent;
-}
 .variant-rename {
-  padding: 3px 8px; background: #3a3a5e; border: 1px solid #7a7aaa;
-  border-radius: 4px; color: #e0e0e0; font: 11px monospace; outline: none;
+  padding: 0; font: inherit; color: inherit; background: none; border: none; outline: none;
 }
 .edit-actions button.save { background: #2a4a3e; border-color: #2ecc71; color: #2ecc71; min-width: 56px; transition: background 0.05s, color 0.05s; }
 .edit-actions button.saved { background: #2ecc71; color: #fff; border-color: #2ecc71; }
