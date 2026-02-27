@@ -23,6 +23,7 @@ const originGroupsEl = document.getElementById("originGroups");
 const statusBar = document.getElementById("statusBar");
 const requestsEl = document.getElementById("requests");
 const recCountEl = document.getElementById("recCount");
+const recSearchInput = document.getElementById("recSearchInput");
 const recordingsEl = document.getElementById("recordings");
 const backBtn = document.getElementById("backBtn");
 const detailCount = document.getElementById("detailCount");
@@ -52,7 +53,6 @@ let knownOrigins = [];
 let currentView = "main";
 let detailRecordingId = null;
 let expandedEntry = -1;
-let isRenaming = false;
 let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
@@ -350,12 +350,17 @@ requestsEl.addEventListener("click", (e) => {
 // --- Recordings list ---
 function renderRecordings(recs, activeReplays) {
   recCountEl.textContent = recs.length ? `(${recs.length})` : "";
-  if (recs.length === 0) {
-    recordingsEl.innerHTML =
-      '<div class="empty" style="padding:16px">No recordings yet</div>';
+  const query = (recSearchInput.value || "").trim().toLowerCase();
+  const filtered = query
+    ? recs.filter((r) => (r.name || "").toLowerCase().includes(query))
+    : recs;
+  if (filtered.length === 0) {
+    recordingsEl.innerHTML = query
+      ? '<div class="empty" style="padding:16px">No matches</div>'
+      : '<div class="empty" style="padding:16px">No recordings yet</div>';
     return;
   }
-  recordingsEl.innerHTML = recs
+  recordingsEl.innerHTML = filtered
     .toReversed()
     .map((r) => {
       const isReplaying = r.id in (activeReplays || {});
@@ -368,8 +373,7 @@ function renderRecordings(recs, activeReplays) {
       }
       return `
     <div class="rec-item" data-id="${r.id}">
-      <button class="edit" data-id="${r.id}">Edit</button>
-      <span class="rec-name" data-id="${r.id}" title="Click to rename">${esc(r.name)}</span>
+      <span class="rec-name" data-id="${r.id}">${esc(r.name)}</span>
       ${sourceHtml}
       <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
       <button class="merge" data-id="${r.id}">Merge</button>
@@ -381,6 +385,8 @@ function renderRecordings(recs, activeReplays) {
     })
     .join("");
 }
+
+recSearchInput.addEventListener("input", () => refresh());
 
 // --- Refresh (main view) ---
 function refresh() {
@@ -440,13 +446,13 @@ function refresh() {
       renderRequests(res.requests);
     }
 
-    if (!isRenaming && !isMerging) {
+    if (!isMerging) {
       const recKey =
         JSON.stringify(
           res.recordings.map(
             (r) => r.id + r.name + r.count + (r.sourceUrl || ""),
           ),
-        ) + JSON.stringify(res.activeReplays || {});
+        ) + JSON.stringify(res.activeReplays || {}) + (recSearchInput.value || "");
       if (recKey !== lastRecKey) {
         lastRecKey = recKey;
         renderRecordings(res.recordings, res.activeReplays);
@@ -497,42 +503,13 @@ recordingsEl.addEventListener("click", (e) => {
 
   const nameEl = e.target.closest(".rec-name");
   if (nameEl && !e.target.closest("button")) {
-    const id = nameEl.dataset.id;
-    const current = nameEl.textContent;
-    const input = document.createElement("input");
-    input.className = "rename-input";
-    input.value = current;
-    isRenaming = true;
-    nameEl.replaceWith(input);
-    input.focus();
-    input.select();
-    const commit = () => {
-      isRenaming = false;
-      const name = input.value.trim() || current;
-      chrome.runtime.sendMessage(
-        { type: "renameRecording", recordingId: id, name },
-        () => refresh(),
-      );
-    };
-    input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") commit();
-      if (ev.key === "Escape") {
-        isRenaming = false;
-        refresh();
-      }
-    });
-    input.addEventListener("blur", commit);
+    openDetail(nameEl.dataset.id);
     return;
   }
 
   const btn = e.target.closest("button");
   if (!btn) return;
   const id = btn.dataset.id;
-
-  if (btn.classList.contains("edit")) {
-    openDetail(id);
-    return;
-  }
 
   if (btn.classList.contains("replay")) {
     if (btn.classList.contains("active-replay")) {
@@ -1239,6 +1216,7 @@ function showVariantPicker(entryIndex) {
     loadEntries(detailRecordingId);
   });
 }
+
 
 detailView.addEventListener("click", (e) => {
   const titleEl = e.target.closest("#detailTitle");
