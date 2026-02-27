@@ -1299,10 +1299,19 @@ detailEntries.addEventListener("click", (e) => {
   const toggleCb = e.target.closest(".detail-entry-toggle");
   if (toggleCb) {
     const idx = parseInt(toggleCb.dataset.index);
-    chrome.runtime.sendMessage(
-      { type: "toggleEntry", recordingId: detailRecordingId, index: idx },
-      () => loadDetail(),
-    );
+    if (e.shiftKey) {
+      e.preventDefault();
+      entryTogglesVisible = true;
+      chrome.runtime.sendMessage(
+        { type: "soloEntry", recordingId: detailRecordingId, index: idx },
+        () => loadDetail(),
+      );
+    } else {
+      chrome.runtime.sendMessage(
+        { type: "toggleEntry", recordingId: detailRecordingId, index: idx },
+        () => loadDetail(),
+      );
+    }
     return;
   }
 
@@ -1472,8 +1481,16 @@ detailEntries.addEventListener("click", (e) => {
   const row = e.target.closest(".detail-row");
   if (row && !e.target.closest(".detail-entry-toggle")) {
     const idx = parseInt(row.dataset.index);
-    expandedEntry = expandedEntry === idx ? -1 : idx;
-    loadDetail();
+    if (e.shiftKey) {
+      entryTogglesVisible = true;
+      chrome.runtime.sendMessage(
+        { type: "soloEntry", recordingId: detailRecordingId, index: idx },
+        () => loadDetail(),
+      );
+    } else {
+      expandedEntry = expandedEntry === idx ? -1 : idx;
+      loadDetail();
+    }
   }
 });
 

@@ -376,6 +376,21 @@ export function handleToggleEntry(state, recordingId, index) {
   return { ...state, recordings };
 }
 
+export function handleSoloEntry(state, recordingId, index) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    if (index < 0 || index >= r.entries.length) return r;
+    // If this is already the only enabled entry, re-enable all
+    const onlyThisEnabled = r.entries.every((e, i) => i === index ? !e.disabled : e.disabled);
+    const entries = r.entries.map((e, i) => ({
+      ...e,
+      disabled: onlyThisEnabled ? false : i !== index,
+    }));
+    return { ...r, entries };
+  });
+  return { ...state, recordings };
+}
+
 export function handleToggleAllEntries(state, recordingId, disabled) {
   const recordings = state.recordings.map((r) => {
     if (r.id !== recordingId) return r;

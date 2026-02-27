@@ -24,6 +24,7 @@ import {
   handleSetRecordingOriginGroups,
   activeOriginGroupsForRecording,
   handleToggleEntry,
+  handleSoloEntry,
   handleToggleAllEntries,
   handleSetActiveVariant,
   handleAddVariant,
@@ -333,6 +334,15 @@ function handleMessage(msg, sender, sendResponse) {
 
   if (msg.type === "toggleEntry") {
     state = handleToggleEntry(state, msg.recordingId, msg.index);
+    persist("recordings");
+    const tabId = state.activeReplays[msg.recordingId];
+    if (tabId) syncReplayToTab(tabId);
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "soloEntry") {
+    state = handleSoloEntry(state, msg.recordingId, msg.index);
     persist("recordings");
     const tabId = state.activeReplays[msg.recordingId];
     if (tabId) syncReplayToTab(tabId);
