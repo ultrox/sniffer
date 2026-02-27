@@ -332,7 +332,7 @@ div.jsoneditor-menu > .jsoneditor-modes > button { color: #e0e0e0; font-size: 10
 .jsoneditor-search .jsoneditor-results { color: #888; }
 .jsoneditor-frame { background: #1a1a2e; display: flex; }
 .jsoneditor-frame button { width: 30px; }
-div.jsoneditor-outer { overflow: hidden; }
+div.jsoneditor-outer { overflow: hidden; height: 100%; }
 
 /* Tree */
 div.jsoneditor td,
@@ -358,6 +358,16 @@ div.jsoneditor-contextmenu .jsoneditor-menu { border-color: #444; background: #2
 div.jsoneditor-contextmenu .jsoneditor-menu li .jsoneditor-expand { background: #2a2a3e; }
 div.jsoneditor-contextmenu .jsoneditor-menu li .jsoneditor-expand:hover { background: #3a3a4e; }
 div.jsoneditor-contextmenu .jsoneditor-separator { background: #444; }
-textarea.jsoneditor-text { background: #1a1a2e; color: #e0e0e0; }
+textarea.jsoneditor-text,
+div.jsoneditor-text-mode,
+div.jsoneditor-text-mode .ace_editor,
+div.jsoneditor-text-mode .ace_content,
+div.jsoneditor-text-mode .ace_scroller,
+div.jsoneditor-text-mode .ace_gutter { background: #1a1a2e !important; color: #e0e0e0 !important; }
+div.jsoneditor-text-mode .ace_gutter-cell { color: #666 !important; }
+div.jsoneditor-text-mode .ace_text-layer { color: #e0e0e0 !important; }
 div.jsoneditor td.jsoneditor-tree { background: #1a1a2e; }
-.edit-form .jsoneditor-container { height: 700px; margin-top: 2px; }
+.edit-form .jsoneditor-container { height: 700px; margin-top: 2px; overflow: hidden; }
+.edit-form .jsoneditor-container > div { height: 100%; }
+.edit-form .jsoneditor-container div.jsoneditor { height: 100%; display: flex; flex-direction: column; }
+textarea.jsoneditor-text { width: 100% !important; height: 100% !important; box-sizing: border-box; }

@@ -647,11 +647,10 @@ function renderDetailEntries(entries) {
     } catch {}
     if (parsed !== undefined) {
       const editorDiv = document.createElement("div");
-      editorDiv.style.height = "700px";
       container.appendChild(editorDiv);
       activeJsonEditor = new JSONEditor(editorDiv, {
         mode: "tree",
-        modes: ["tree", "view"],
+        modes: ["tree", "text"],
         navigationBar: false,
       });
       activeJsonEditor.set(parsed);
