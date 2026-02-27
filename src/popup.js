@@ -466,6 +466,8 @@ function openDetail(recordingId) {
   detailSort = null;
   detailSortBtn.classList.remove("active");
   detailSortBtn.textContent = "Sort";
+  detailPathFilter.value = "";
+  detailBodyFilter.value = "";
   currentView = "detail";
   mainView.style.display = "none";
   detailView.style.display = "block";
@@ -541,9 +543,7 @@ function loadDetail() {
         }
         detailCount.textContent = `${entries.length} req`;
         detailAllEntries = entries;
-        detailPathFilter.value = "";
-        detailBodyFilter.value = "";
-        renderDetailEntries(entries);
+        applyDetailFilters();
         updateDetailButtons();
       });
     },
