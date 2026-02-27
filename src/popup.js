@@ -805,6 +805,7 @@ function renderDetailEntries(entries) {
             <button class="save" data-index="${i}">Save</button>
             <button class="cancel">Cancel</button>
           </div>
+          <label>Response body</label>
           ${(() => {
             const variants = e.bodyVariants;
             if (variants && variants.length > 0) {
@@ -820,7 +821,6 @@ function renderDetailEntries(entries) {
               <button class="variant-pick" data-index="${i}">Copy from...</button>
             </div>`;
           })()}
-          <label>Response body</label>
           <div class="jsoneditor-container" data-index="${i}"></div>
         </div>`;
         return `<div class="detail-entry expanded">${row}${form}</div>`;
@@ -1304,9 +1304,19 @@ detailEntries.addEventListener("click", (e) => {
     const input = document.createElement("input");
     input.className = "variant-rename";
     input.value = currentName;
+    // Capture tab width before replacing contents so input matches
+    const tabWidth = tab.offsetWidth;
     // Replace tab contents with input
     tab.innerHTML = "";
+    tab.classList.add("editing");
     tab.appendChild(input);
+    input.style.minWidth = tabWidth + "px";
+    const sizeToContent = () => {
+      input.style.width = "0";
+      input.style.width = input.scrollWidth + "px";
+    };
+    sizeToContent();
+    input.addEventListener("input", sizeToContent);
     input.focus();
     input.select();
     const commit = () => {
