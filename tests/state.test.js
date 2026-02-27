@@ -19,6 +19,10 @@ import {
   handleDeleteEntry,
   handleAddRecordingIgnore,
   handleRemoveRecordingIgnore,
+  handleSetActiveVariant,
+  handleAddVariant,
+  handleDeleteVariant,
+  handleRenameVariant,
   handleReplayed,
   handleWebRequestBefore,
   hasActiveReplays,
@@ -295,6 +299,133 @@ describe("handleAddRecordingIgnore / handleRemoveRecordingIgnore", () => {
     };
     const next = handleRemoveRecordingIgnore(state, "1", "/ads");
     expect(next.recordings[0].ignorePatterns).toEqual(["/track"]);
+  });
+});
+
+describe("handleSetActiveVariant", () => {
+  it("switches active variant and syncs body", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [{
+          url: "a",
+          body: "first",
+          bodyVariants: [{ name: "v1", body: "first" }, { name: "v2", body: "second" }],
+          activeVariant: 0,
+        }],
+      }],
+    };
+    const next = handleSetActiveVariant(state, "1", 0, 1);
+    const entry = next.recordings[0].entries[0];
+    expect(entry.activeVariant).toBe(1);
+    expect(entry.body).toBe("second");
+  });
+
+  it("does nothing for missing variants", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{ id: "1", entries: [{ url: "a", body: "x" }] }],
+    };
+    const next = handleSetActiveVariant(state, "1", 0, 0);
+    expect(next.recordings[0].entries[0].body).toBe("x");
+  });
+});
+
+describe("handleAddVariant", () => {
+  it("creates default + new variant on first add", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{ id: "1", entries: [{ url: "a", body: "original" }] }],
+    };
+    const next = handleAddVariant(state, "1", 0, "empty", "[]");
+    const entry = next.recordings[0].entries[0];
+    expect(entry.bodyVariants).toHaveLength(2);
+    expect(entry.bodyVariants[0]).toEqual({ name: "default", body: "original" });
+    expect(entry.bodyVariants[1]).toEqual({ name: "empty", body: "[]" });
+    expect(entry.activeVariant).toBe(1);
+    expect(entry.body).toBe("[]");
+  });
+
+  it("appends variant when variants already exist", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [{
+          url: "a",
+          body: "first",
+          bodyVariants: [{ name: "v1", body: "first" }],
+          activeVariant: 0,
+        }],
+      }],
+    };
+    const next = handleAddVariant(state, "1", 0, "v2", "second");
+    const entry = next.recordings[0].entries[0];
+    expect(entry.bodyVariants).toHaveLength(2);
+    expect(entry.activeVariant).toBe(1);
+    expect(entry.body).toBe("second");
+  });
+});
+
+describe("handleDeleteVariant", () => {
+  it("removes variant and adjusts activeVariant", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [{
+          url: "a",
+          body: "second",
+          bodyVariants: [{ name: "v1", body: "first" }, { name: "v2", body: "second" }],
+          activeVariant: 1,
+        }],
+      }],
+    };
+    const next = handleDeleteVariant(state, "1", 0, 1);
+    const entry = next.recordings[0].entries[0];
+    expect(entry.bodyVariants).toHaveLength(1);
+    expect(entry.activeVariant).toBe(0);
+    expect(entry.body).toBe("first");
+  });
+
+  it("removes variants array when deleting last variant", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [{
+          url: "a",
+          body: "only",
+          bodyVariants: [{ name: "v1", body: "only" }],
+          activeVariant: 0,
+        }],
+      }],
+    };
+    const next = handleDeleteVariant(state, "1", 0, 0);
+    const entry = next.recordings[0].entries[0];
+    expect(entry.bodyVariants).toBeUndefined();
+    expect(entry.activeVariant).toBeUndefined();
+    expect(entry.body).toBe("only");
+  });
+});
+
+describe("handleRenameVariant", () => {
+  it("renames a variant", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [{
+          url: "a",
+          body: "x",
+          bodyVariants: [{ name: "old", body: "x" }],
+          activeVariant: 0,
+        }],
+      }],
+    };
+    const next = handleRenameVariant(state, "1", 0, 0, "new");
+    expect(next.recordings[0].entries[0].bodyVariants[0].name).toBe("new");
   });
 });
 

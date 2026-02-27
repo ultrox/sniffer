@@ -608,6 +608,19 @@ function renderDetailEntries(entries) {
             <button class="save" data-index="${i}">Save</button>
             <button class="cancel">Cancel</button>
           </div>
+          ${(() => {
+            const variants = e.bodyVariants;
+            if (variants && variants.length > 0) {
+              const active = e.activeVariant || 0;
+              return `<div class="variant-bar" data-index="${i}">
+                ${variants.map((v, vi) => `<span class="variant-tab ${vi === active ? "active" : ""}" data-vi="${vi}"><span class="variant-name">${esc(v.name)}</span>${variants.length > 1 ? `<span class="variant-del" data-vi="${vi}">x</span>` : ""}</span>`).join("")}
+                <button class="variant-add" data-index="${i}">+</button>
+              </div>`;
+            }
+            return `<div class="variant-bar" data-index="${i}">
+              <button class="variant-add" data-index="${i}">+</button>
+            </div>`;
+          })()}
           <label>Response body</label>
           <div class="jsoneditor-container" data-index="${i}"></div>
         </div>`;
@@ -897,6 +910,76 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
+  const variantAdd = e.target.closest(".variant-add");
+  if (variantAdd) {
+    const idx = parseInt(variantAdd.dataset.index);
+    let body;
+    if (activeJsonEditor) {
+      try { body = JSON.stringify(activeJsonEditor.get()); } catch { body = ""; }
+    } else {
+      const form = detailEntries.querySelector(`.edit-form[data-index="${idx}"]`);
+      body = (form?.querySelector('[name="body"]') || {}).value || "";
+    }
+    chrome.runtime.sendMessage(
+      { type: "addVariant", recordingId: detailRecordingId, index: idx, name: `variant ${Date.now() % 1000}`, body },
+      () => loadDetail(),
+    );
+    return;
+  }
+
+  const variantTab = e.target.closest(".variant-tab");
+  if (variantTab && !e.target.closest(".variant-del")) {
+    const bar = variantTab.closest(".variant-bar");
+    const idx = parseInt(bar.dataset.index);
+    const vi = parseInt(variantTab.dataset.vi);
+    chrome.runtime.sendMessage(
+      { type: "setActiveVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi },
+      () => loadDetail(),
+    );
+    return;
+  }
+
+  const variantDel = e.target.closest(".variant-del");
+  if (variantDel) {
+    const bar = variantDel.closest(".variant-bar");
+    const idx = parseInt(bar.dataset.index);
+    const vi = parseInt(variantDel.dataset.vi);
+    chrome.runtime.sendMessage(
+      { type: "deleteVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi },
+      () => loadDetail(),
+    );
+    return;
+  }
+
+  const variantName = e.target.closest(".variant-name");
+  if (variantName) {
+    const tab = variantName.closest(".variant-tab");
+    const bar = tab.closest(".variant-bar");
+    const idx = parseInt(bar.dataset.index);
+    const vi = parseInt(tab.dataset.vi);
+    const current = variantName.textContent;
+    const input = document.createElement("input");
+    input.className = "variant-rename";
+    input.value = current;
+    variantName.replaceWith(input);
+    input.focus();
+    input.select();
+    const commit = () => {
+      const name = input.value.trim() || current;
+      chrome.runtime.sendMessage(
+        { type: "renameVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi, name },
+        () => loadDetail(),
+      );
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") commit();
+      if (ev.key === "Escape") loadDetail();
+    });
+    input.addEventListener("blur", commit);
+    e.stopPropagation();
+    return;
+  }
+
   const saveBtn = e.target.closest(".save");
   if (saveBtn) {
     const idx = parseInt(saveBtn.dataset.index);
@@ -924,6 +1007,7 @@ detailEntries.addEventListener("click", (e) => {
     } else {
       url = form.querySelector('[name="url"]').value;
     }
+    const entry = detailAllEntries[idx];
     const updates = {
       url,
       method: form.querySelector('[name="method"]').value,
@@ -931,6 +1015,13 @@ detailEntries.addEventListener("click", (e) => {
       kind: form.querySelector('[name="kind"]').value,
       body,
     };
+    if (entry?.bodyVariants) {
+      const active = entry.activeVariant || 0;
+      const variants = entry.bodyVariants.map((v, i) =>
+        i === active ? { ...v, body } : v,
+      );
+      updates.bodyVariants = variants;
+    }
     if (payload !== null) updates.payload = payload;
     chrome.runtime.sendMessage(
       {
@@ -940,8 +1031,8 @@ detailEntries.addEventListener("click", (e) => {
         updates,
       },
       () => {
-        expandedEntry = -1;
-        loadDetail();
+        saveBtn.classList.add("saved");
+        setTimeout(() => saveBtn.classList.remove("saved"), 600);
       },
     );
     return;

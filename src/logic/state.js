@@ -214,6 +214,72 @@ export function handleRemoveRecordingIgnore(state, recordingId, pattern) {
   return { ...state, recordings };
 }
 
+// --- Body variant helpers ---
+function updateEntryInRecording(state, recordingId, entryIndex, updater) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    if (entryIndex < 0 || entryIndex >= r.entries.length) return r;
+    const entries = [...r.entries];
+    entries[entryIndex] = updater(entries[entryIndex]);
+    return { ...r, entries };
+  });
+  return { ...state, recordings };
+}
+
+export function handleSetActiveVariant(state, recordingId, entryIndex, variantIndex) {
+  return updateEntryInRecording(state, recordingId, entryIndex, (entry) => {
+    if (!entry.bodyVariants || variantIndex < 0 || variantIndex >= entry.bodyVariants.length) return entry;
+    return {
+      ...entry,
+      activeVariant: variantIndex,
+      body: entry.bodyVariants[variantIndex].body,
+    };
+  });
+}
+
+export function handleAddVariant(state, recordingId, entryIndex, name, body) {
+  return updateEntryInRecording(state, recordingId, entryIndex, (entry) => {
+    const variants = entry.bodyVariants
+      ? [...entry.bodyVariants]
+      : [{ name: "default", body: entry.body || "" }];
+    variants.push({ name, body });
+    return {
+      ...entry,
+      bodyVariants: variants,
+      activeVariant: variants.length - 1,
+      body,
+    };
+  });
+}
+
+export function handleDeleteVariant(state, recordingId, entryIndex, variantIndex) {
+  return updateEntryInRecording(state, recordingId, entryIndex, (entry) => {
+    if (!entry.bodyVariants || variantIndex < 0 || variantIndex >= entry.bodyVariants.length) return entry;
+    if (entry.bodyVariants.length <= 1) {
+      const { bodyVariants, activeVariant, ...rest } = entry;
+      return rest;
+    }
+    const variants = entry.bodyVariants.filter((_, i) => i !== variantIndex);
+    const active = Math.min(entry.activeVariant || 0, variants.length - 1);
+    return {
+      ...entry,
+      bodyVariants: variants,
+      activeVariant: active,
+      body: variants[active].body,
+    };
+  });
+}
+
+export function handleRenameVariant(state, recordingId, entryIndex, variantIndex, name) {
+  return updateEntryInRecording(state, recordingId, entryIndex, (entry) => {
+    if (!entry.bodyVariants || variantIndex < 0 || variantIndex >= entry.bodyVariants.length) return entry;
+    const variants = entry.bodyVariants.map((v, i) =>
+      i === variantIndex ? { ...v, name } : v,
+    );
+    return { ...entry, bodyVariants: variants };
+  });
+}
+
 export function handleReplayed(state) {
   return { ...state, replayHitCount: state.replayHitCount + 1 };
 }

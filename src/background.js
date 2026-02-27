@@ -17,6 +17,10 @@ import {
   handleDeleteEntry,
   handleAddRecordingIgnore,
   handleRemoveRecordingIgnore,
+  handleSetActiveVariant,
+  handleAddVariant,
+  handleDeleteVariant,
+  handleRenameVariant,
   handleReplayed,
   handleWebRequestBefore,
   handleWebRequestCompleted,
@@ -227,6 +231,8 @@ function handleMessage(msg, sender, sendResponse) {
   if (msg.type === "updateEntry") {
     state = handleUpdateEntry(state, msg.recordingId, msg.index, msg.updates);
     persist("recordings");
+    const replayTabId = state.activeReplays[msg.recordingId];
+    if (replayTabId) syncReplayToTab(replayTabId);
     sendResponse({});
     return true;
   }
@@ -247,6 +253,38 @@ function handleMessage(msg, sender, sendResponse) {
 
   if (msg.type === "removeRecordingIgnore") {
     state = handleRemoveRecordingIgnore(state, msg.recordingId, msg.pattern);
+    persist("recordings");
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "setActiveVariant") {
+    state = handleSetActiveVariant(state, msg.recordingId, msg.index, msg.variantIndex);
+    persist("recordings");
+    const svTabId = state.activeReplays[msg.recordingId];
+    if (svTabId) syncReplayToTab(svTabId);
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "addVariant") {
+    state = handleAddVariant(state, msg.recordingId, msg.index, msg.name, msg.body);
+    persist("recordings");
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "deleteVariant") {
+    state = handleDeleteVariant(state, msg.recordingId, msg.index, msg.variantIndex);
+    persist("recordings");
+    const dvTabId = state.activeReplays[msg.recordingId];
+    if (dvTabId) syncReplayToTab(dvTabId);
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "renameVariant") {
+    state = handleRenameVariant(state, msg.recordingId, msg.index, msg.variantIndex, msg.name);
     persist("recordings");
     sendResponse({});
     return true;
