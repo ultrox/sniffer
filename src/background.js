@@ -40,13 +40,16 @@ let state = createInitialState();
 
 const storageReady = new Promise((resolve) => {
   chrome.storage.local.get(
-    ["recordings", "recordFilters", "ignorePatterns", "activeReplays", "originGroups"],
+    ["recordings", "recordFilters", "ignorePatterns", "activeReplays", "originGroups", "recording", "recordTargetId", "recordTabId"],
     (res) => {
       if (res.recordings) state.recordings = res.recordings;
       if (res.recordFilters) state.recordFilters = res.recordFilters;
       if (res.ignorePatterns) state.ignorePatterns = res.ignorePatterns;
       if (res.activeReplays) state.activeReplays = res.activeReplays;
       if (res.originGroups) state.originGroups = res.originGroups;
+      if (res.recording) state.recording = res.recording;
+      if (res.recordTargetId) state.recordTargetId = res.recordTargetId;
+      if (res.recordTabId) state.recordTabId = res.recordTabId;
       updateIcon();
       resolve();
     },
@@ -171,10 +174,11 @@ function handleMessage(msg, sender, sendResponse) {
 
   if (msg.type === "startRecord") {
     state = handleStartRecord(state, msg.filters, msg.targetId);
-    persist("recordFilters");
+    persist("recordFilters", "recording", "recordTargetId");
     getOriginTab().then((tab) => {
       state.recordTabId = tab?.id ?? null;
       state.recordSourceUrl = tab?.url ?? null;
+      persist("recordTabId");
       if (state.recordTabId) sendToTab(state.recordTabId, "record", []);
     });
     sendResponse({ recording: true });
@@ -185,7 +189,7 @@ function handleMessage(msg, sender, sendResponse) {
   if (msg.type === "createAndRecord") {
     state = handleCreateAndRecord(state, msg.filters);
     const recordingId = state.recordTargetId;
-    persist("recordings", "recordFilters");
+    persist("recordings", "recordFilters", "recording", "recordTargetId");
     getOriginTab().then((tab) => {
       state.recordTabId = tab?.id ?? null;
       state.recordSourceUrl = tab?.url ?? null;
@@ -193,7 +197,7 @@ function handleMessage(msg, sender, sendResponse) {
       state.recordings = state.recordings.map((r) =>
         r.id === recordingId ? { ...r, sourceUrl: state.recordSourceUrl } : r,
       );
-      persist("recordings");
+      persist("recordings", "recordTabId");
       if (state.recordTabId) sendToTab(state.recordTabId, "record", []);
     });
     sendResponse({ recording: true, recordingId });
@@ -204,7 +208,7 @@ function handleMessage(msg, sender, sendResponse) {
   if (msg.type === "stopRecord") {
     const oldTabId = state.recordTabId;
     state = handleStopRecord(state);
-    persist("recordings");
+    persist("recordings", "recording", "recordTargetId", "recordTabId");
     if (oldTabId) sendToTab(oldTabId, null, []);
     sendResponse({ recording: false });
     updateIcon();
@@ -214,7 +218,7 @@ function handleMessage(msg, sender, sendResponse) {
   if (msg.type === "stopRecordInto") {
     const oldTabId = state.recordTabId;
     state = handleStopRecordInto(state, msg.recordingId);
-    persist("recordings");
+    persist("recordings", "recording", "recordTargetId", "recordTabId");
     if (oldTabId) sendToTab(oldTabId, null, []);
     sendResponse({ recording: false });
     updateIcon();

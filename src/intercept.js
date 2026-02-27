@@ -137,6 +137,38 @@ import {
     return origXHRSend.call(this, body);
   };
 
+  // --- Status indicator ---
+  let badge = null;
+  function updateBadge() {
+    if (!mode) {
+      if (badge) { badge.remove(); badge = null; }
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.id = "__sniffer_badge__";
+      const s = badge.style;
+      s.position = "fixed";
+      s.bottom = "12px";
+      s.right = "12px";
+      s.zIndex = "2147483647";
+      s.padding = "4px 10px";
+      s.borderRadius = "6px";
+      s.font = "bold 11px/1 monospace";
+      s.color = "#fff";
+      s.pointerEvents = "none";
+      s.opacity = "0.85";
+      document.documentElement.appendChild(badge);
+    }
+    if (mode === "record") {
+      badge.textContent = "● REC";
+      badge.style.background = "#e74c3c";
+    } else if (mode === "replay") {
+      badge.textContent = "▶ REPLAY";
+      badge.style.background = "#2ecc71";
+    }
+  }
+
   // --- Sync bootstrap from localStorage (survives reload for replay) ---
   try {
     const cached = localStorage.getItem("__sniffer__");
@@ -147,6 +179,7 @@ import {
       originGroups = data.originGroups || [];
     }
   } catch {}
+  updateBadge();
 
   // --- Listen for mode changes from bridge ---
   window.addEventListener("message", (e) => {
@@ -155,6 +188,7 @@ import {
       mode = e.data.mode;
       replayEntries = e.data.entries || [];
       originGroups = e.data.originGroups || [];
+      updateBadge();
     }
   });
 })();

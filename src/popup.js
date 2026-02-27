@@ -13,15 +13,10 @@ import {
 // --- Elements ---
 const mainView = document.getElementById("mainView");
 const detailView = document.getElementById("detailView");
-const toggleBtn = document.getElementById("toggle");
 const recordBtn = document.getElementById("record");
-const clearBtn = document.getElementById("clear");
-const countEl = document.getElementById("count");
 const filtersEl = document.getElementById("filters");
 const ignoreBar = document.getElementById("ignoreBar");
 const originGroupsEl = document.getElementById("originGroups");
-const statusBar = document.getElementById("statusBar");
-const requestsEl = document.getElementById("requests");
 const recCountEl = document.getElementById("recCount");
 const recSearchInput = document.getElementById("recSearchInput");
 const recordingsEl = document.getElementById("recordings");
@@ -315,40 +310,8 @@ originGroupsEl.addEventListener("change", (e) => {
 });
 
 // --- Request list ---
-function renderRequests(items) {
-  countEl.textContent = `${items.length} req`;
-  if (items.length === 0) {
-    requestsEl.innerHTML = '<div class="empty">No requests captured</div>';
-    return;
-  }
-  requestsEl.innerHTML = items
-    .toReversed()
-    .map(
-      (r) => `
-    <div class="req">
-      <span class="method ${r.method}">${r.method}</span>
-      <span class="type">${r.type || r.kind || ""}</span>
-      <span class="url" title="${esc(r.url)}">${esc(cleanUrl(r.url))}</span>
-      <span class="status ${statusClass(r.status)}">${r.status || "..."}</span>
-      <span class="req-ignore" data-path="${esc(getPath(r.url))}" title="Ignore ${esc(getPath(r.url))}">ban</span>
-    </div>`,
-    )
-    .join("");
-}
-
-requestsEl.addEventListener("click", (e) => {
-  const ban = e.target.closest(".req-ignore");
-  if (!ban) return;
-  const path = ban.dataset.path;
-  if (!path) return;
-  chrome.runtime.sendMessage({ type: "addIgnore", pattern: path }, (res) => {
-    if (res?.ignorePatterns) ignorePatterns = res.ignorePatterns;
-    renderIgnoreBar();
-  });
-});
-
 // --- Recordings list ---
-function renderRecordings(recs, activeReplays) {
+function renderRecordings(recs, activeReplays, recordingState) {
   recCountEl.textContent = recs.length ? `(${recs.length})` : "";
   const query = (recSearchInput.value || "").trim().toLowerCase();
   const filtered = query
@@ -360,10 +323,12 @@ function renderRecordings(recs, activeReplays) {
       : '<div class="empty" style="padding:16px">No recordings yet</div>';
     return;
   }
+  const { recording, recordTargetId, recordCount } = recordingState || {};
   recordingsEl.innerHTML = filtered
     .toReversed()
     .map((r) => {
       const isReplaying = r.id in (activeReplays || {});
+      const isRecording = recording && recordTargetId === r.id;
       let sourceHtml = "";
       if (r.sourceUrl) {
         try {
@@ -371,11 +336,15 @@ function renderRecordings(recs, activeReplays) {
           sourceHtml = `<span class="rec-source" data-url="${esc(r.sourceUrl)}" title="${esc(r.sourceUrl)}">${esc(u.pathname + u.search)}</span>`;
         } catch {}
       }
+      const recIndicator = isRecording
+        ? `<span class="rec-recording-badge">REC ${recordCount}</span>`
+        : "";
       return `
-    <div class="rec-item" data-id="${r.id}">
+    <div class="rec-item${isRecording ? " rec-active-recording" : ""}" data-id="${r.id}">
       <span class="rec-name" data-id="${r.id}">${esc(r.name)}</span>
+      ${recIndicator}
       ${sourceHtml}
-      <span class="rec-meta">${r.count} req - ${timeAgo(r.timestamp)}</span>
+      <span class="rec-meta">${r.count}${isRecording ? `+${recordCount}` : ""} req - ${timeAgo(r.timestamp)}</span>
       <button class="merge" data-id="${r.id}">Merge</button>
       <button class="replay ${isReplaying ? "active-replay" : ""}" data-id="${r.id}">
         ${isReplaying ? "Stop" : "Replay"}
@@ -416,9 +385,6 @@ function refresh() {
       renderOriginGroups();
     }
 
-    toggleBtn.classList.toggle("active", res.sniffing);
-    toggleBtn.textContent = res.sniffing ? "Stop" : "Sniff";
-
     recordBtn.classList.remove("recording");
     if (res.recording) {
       recordBtn.classList.add("recording");
@@ -427,45 +393,29 @@ function refresh() {
       recordBtn.textContent = "Record";
     }
 
-    statusBar.className = "status-bar";
-    if (res.recording) {
-      statusBar.classList.add("recording");
-      statusBar.textContent = `RECORDING - ${res.recordEntries.length} requests captured`;
-    } else if (res.replaying) {
-      statusBar.classList.add("replaying");
-      const replayIds = Object.keys(res.activeReplays || {});
-      const names = replayIds
-        .map((id) => res.recordings.find((r) => r.id === id)?.name)
-        .filter(Boolean);
-      statusBar.textContent = `REPLAYING - ${res.replayHitCount} intercepted - ${names.join(", ") || "recording"}`;
-    }
-
-    if (res.recording) {
-      renderRequests(res.recordEntries);
-    } else {
-      renderRequests(res.requests);
-    }
-
     if (!isMerging) {
+      const recordingState = {
+        recording: res.recording,
+        recordTargetId: res.recordTargetId,
+        recordCount: (res.recordEntries || []).length,
+      };
       const recKey =
         JSON.stringify(
           res.recordings.map(
             (r) => r.id + r.name + r.count + (r.sourceUrl || ""),
           ),
-        ) + JSON.stringify(res.activeReplays || {}) + (recSearchInput.value || "");
+        ) + JSON.stringify(res.activeReplays || {})
+          + (recSearchInput.value || "")
+          + (res.recording ? res.recordTargetId + recordingState.recordCount : "");
       if (recKey !== lastRecKey) {
         lastRecKey = recKey;
-        renderRecordings(res.recordings, res.activeReplays);
+        renderRecordings(res.recordings, res.activeReplays, recordingState);
       }
     }
   });
 }
 
 // --- Main view events ---
-toggleBtn.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "toggle" }, () => refresh());
-});
-
 recordBtn.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
     if (!res) return;
@@ -485,9 +435,6 @@ recordBtn.addEventListener("click", () => {
   });
 });
 
-clearBtn.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "clear" }, () => refresh());
-});
 
 recordingsEl.addEventListener("click", (e) => {
   const sourceEl = e.target.closest(".rec-source");
@@ -622,16 +569,7 @@ function doCloseDetail() {
 }
 
 function closeDetail() {
-  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
-    if (res?.recording) {
-      chrome.runtime.sendMessage(
-        { type: "stopRecordInto", recordingId: res.recordTargetId },
-        () => doCloseDetail(),
-      );
-    } else {
-      doCloseDetail();
-    }
-  });
+  doCloseDetail();
 }
 
 function updateDetailButtons() {
