@@ -50,8 +50,6 @@ let isRenaming = false;
 let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
-let isImporting = false;
-let isVariantPicking = false;
 let pendingVariantRename = null; // { entryIndex, variantIndex } - auto-open rename after load
 
 // --- Helpers ---
@@ -692,7 +690,6 @@ importBtn.addEventListener("click", () => {
   const existing = detailView.querySelector(".import-picker");
   if (existing) {
     existing.remove();
-    isImporting = false;
     return;
   }
   showImportPicker();
@@ -704,7 +701,6 @@ function showImportPicker() {
     const others = res.recordings.filter((r) => r.id !== detailRecordingId);
     if (others.length === 0) return;
 
-    isImporting = true;
     const picker = document.createElement("div");
     picker.className = "import-picker";
 
@@ -730,7 +726,6 @@ function showImportPicker() {
 
     const closePicker = () => {
       picker.remove();
-      isImporting = false;
       document.removeEventListener("keydown", onKey);
       loadDetail();
     };
@@ -814,11 +809,9 @@ function showVariantPicker(entryIndex) {
   const existing = detailEntries.querySelector(".variant-picker");
   if (existing) {
     existing.remove();
-    isVariantPicking = false;
     return;
   }
 
-  isVariantPicking = true;
 
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
     if (!res) return;
@@ -854,7 +847,6 @@ function showVariantPicker(entryIndex) {
 
     const closePicker = () => {
       picker.remove();
-      isVariantPicking = false;
       document.removeEventListener("keydown", onKey);
     };
 
