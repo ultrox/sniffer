@@ -43,6 +43,12 @@ chrome.runtime.sendMessage(
   { source: "sniffer-bridge", type: "init" },
   (res) => {
     if (chrome.runtime.lastError) return;
+    if (res?.corner) {
+      window.postMessage(
+        { source: "sniffer-bg", type: "setCorner", corner: res.corner },
+        "*"
+      );
+    }
     if (res?.mode) {
       window.postMessage(
         {

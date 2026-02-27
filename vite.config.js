@@ -16,6 +16,7 @@ function chromeExtension() {
       manifest.background = { service_worker: "background.js" };
       manifest.content_scripts[0].js = ["bridge.js"];
       manifest.content_scripts[1].js = ["intercept.js"];
+      manifest.action.default_popup = "src/action-popup.html";
       manifest.action.default_icon = {
         16: "icon.png",
         48: "icon.png",
@@ -50,6 +51,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, "src/popup.html"),
+        actionPopup: resolve(__dirname, "src/action-popup.html"),
         background: resolve(__dirname, "src/background.js"),
         intercept: resolve(__dirname, "src/intercept.js"),
         bridge: resolve(__dirname, "src/bridge.js"),

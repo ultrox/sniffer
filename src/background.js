@@ -383,18 +383,42 @@ function handleMessage(msg, sender, sendResponse) {
     return true;
   }
 
+  if (msg.type === "openDashboard") {
+    if (msg.tabId) originTabId = msg.tabId;
+    chrome.tabs.create({ url: chrome.runtime.getURL("src/popup.html") });
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "setCorner") {
+    chrome.storage.local.set({ snifferCorner: msg.corner });
+    const tabId = sender.tab?.id;
+    if (tabId) {
+      chrome.tabs.sendMessage(tabId, {
+        source: "sniffer-bg",
+        type: "setCorner",
+        corner: msg.corner,
+      });
+    }
+    sendResponse({});
+    return true;
+  }
+
   if (msg.source === "sniffer-bridge" && msg.type === "init") {
     const tabId = sender.tab?.id;
-    const entries = mergedReplayEntries(state, tabId);
-    if (entries.length > 0) {
-      const originGroups = resolvedOriginGroupsForTab(state, tabId);
-      sendResponse({ mode: "replay", entries, originGroups });
-    } else if (state.recording && tabId === state.recordTabId) {
-      sendResponse({ mode: "record", entries: [], originGroups: [] });
-    } else {
-      sendResponse({ mode: null, originGroups: [] });
-    }
-    return;
+    chrome.storage.local.get("snifferCorner", (res) => {
+      const corner = res.snifferCorner || "br";
+      const entries = mergedReplayEntries(state, tabId);
+      if (entries.length > 0) {
+        const originGroups = resolvedOriginGroupsForTab(state, tabId);
+        sendResponse({ mode: "replay", entries, originGroups, corner });
+      } else if (state.recording && tabId === state.recordTabId) {
+        sendResponse({ mode: "record", entries: [], originGroups: [], corner });
+      } else {
+        sendResponse({ mode: null, originGroups: [], corner });
+      }
+    });
+    return true;
   }
 }
 
@@ -455,15 +479,7 @@ function updateIcon() {
   chrome.action.setBadgeBackgroundColor({ color });
 }
 
-// --- Open popup as tab on icon click ---
 let originTabId = null;
-
-chrome.action.onClicked.addListener((tab) => {
-  originTabId = tab.id;
-  chrome.tabs.create({
-    url: chrome.runtime.getURL("src/popup.html"),
-  });
-});
 
 function getOriginTab() {
   return new Promise((resolve) => {

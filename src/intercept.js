@@ -158,14 +158,46 @@ import {
   let panelEl = null;
   let wrapperEl = null;
 
+  const CORNERS = {
+    br: { bottom: "12px", right: "12px", flexDir: "column", badgeAlign: "margin-left:auto;" },
+    bl: { bottom: "12px", left: "12px", flexDir: "column", badgeAlign: "margin-right:auto;" },
+    tr: { top: "12px", right: "12px", flexDir: "column-reverse", badgeAlign: "margin-left:auto;" },
+    tl: { top: "12px", left: "12px", flexDir: "column-reverse", badgeAlign: "margin-right:auto;" },
+  };
+
+  let corner = "br";
+  try { corner = localStorage.getItem("__sniffer_corner__") || "br"; } catch {}
+
   function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  function applyCorner() {
+    if (!wrapperEl) return;
+    const c = CORNERS[corner] || CORNERS.br;
+    wrapperEl.style.cssText = `position:fixed;z-index:2147483647;font:11px/1.4 monospace;color:#fff;display:flex;flex-direction:${c.flexDir};`;
+    wrapperEl.style.top = c.top || "auto";
+    wrapperEl.style.bottom = c.bottom || "auto";
+    wrapperEl.style.left = c.left || "auto";
+    wrapperEl.style.right = c.right || "auto";
+    if (badgeEl) {
+      badgeEl.style.marginLeft = corner.endsWith("r") ? "auto" : "";
+      badgeEl.style.marginRight = corner.endsWith("l") ? "auto" : "";
+    }
+  }
+
+  function setCorner(c) {
+    corner = c;
+    try { localStorage.setItem("__sniffer_corner__", c); } catch {}
+    applyCorner();
+    // Recreate panel so it gets inserted in correct DOM order for the new corner
+    if (panelEl) { panelEl.remove(); panelEl = null; }
+    if (panelOpen) refreshPanel();
+  }
 
   function ensureWrapper() {
     if (wrapperEl) return;
     wrapperEl = document.createElement("div");
     wrapperEl.id = "__sniffer_ui__";
-    const ws = wrapperEl.style;
-    ws.cssText = "position:fixed;bottom:12px;right:12px;z-index:2147483647;font:11px/1.4 monospace;color:#fff;";
+    applyCorner();
     document.documentElement.appendChild(wrapperEl);
   }
 
@@ -174,7 +206,7 @@ import {
 
     if (!badgeEl) {
       badgeEl = document.createElement("button");
-      badgeEl.style.cssText = "padding:5px 10px;border-radius:6px;cursor:pointer;user-select:none;border:none;font:bold 11px/1 monospace;color:#fff;opacity:0.9;display:block;margin-left:auto;";
+      badgeEl.style.cssText = "padding:5px 10px;border-radius:6px;cursor:pointer;user-select:none;border:none;font:bold 11px/1 monospace;color:#fff;opacity:0.9;display:block;" + (CORNERS[corner] || CORNERS.br).badgeAlign;
       badgeEl.addEventListener("mouseenter", () => { badgeEl.style.opacity = "1"; });
       badgeEl.addEventListener("mouseleave", () => { badgeEl.style.opacity = "0.9"; });
       badgeEl.addEventListener("click", togglePanel);
@@ -211,8 +243,13 @@ import {
     ensureWrapper();
     if (!panelEl) {
       panelEl = document.createElement("div");
-      panelEl.style.cssText = "background:#1a1a2e;border:1px solid #444;border-radius:8px;width:280px;max-height:320px;overflow-y:auto;margin-bottom:6px;box-shadow:0 4px 20px rgba(0,0,0,0.5);";
-      wrapperEl.insertBefore(panelEl, badgeEl);
+      const isTop = corner.startsWith("t");
+      panelEl.style.cssText = `background:#1a1a2e;border:1px solid #444;border-radius:8px;width:280px;max-height:320px;overflow-y:auto;${isTop ? "margin-top" : "margin-bottom"}:6px;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+      if (isTop) {
+        wrapperEl.appendChild(panelEl);
+      } else {
+        wrapperEl.insertBefore(panelEl, badgeEl);
+      }
     }
 
     const recs = res.recordings || [];
@@ -303,6 +340,9 @@ import {
       originGroups = e.data.originGroups || [];
       renderBadge();
       if (panelOpen) refreshPanel();
+    }
+    if (e.data.type === "setCorner") {
+      setCorner(e.data.corner);
     }
   });
 })();

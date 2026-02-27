@@ -9,6 +9,7 @@
     "service_worker": "src/background.js"
   },
   "action": {
+    "default_popup": "src/action-popup.html",
     "default_icon": {
       "16": "src/icon.png",
       "48": "src/icon.png",
