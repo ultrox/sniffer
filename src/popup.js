@@ -939,10 +939,26 @@ detailReplayBtn.addEventListener("click", () => {
 // --- Import picker ---
 const importBtn = document.getElementById("importBtn");
 
-document.getElementById("dedupeBtn").addEventListener("click", () => {
+const dedupeBtn = document.getElementById("dedupeBtn");
+dedupeBtn.addEventListener("click", () => {
+  const before = detailAllEntries.length;
   chrome.runtime.sendMessage(
     { type: "dedupeEntries", recordingId: detailRecordingId },
-    () => loadDetail(),
+    () => {
+      chrome.runtime.sendMessage(
+        { type: "getRecording", recordingId: detailRecordingId },
+        (rec) => {
+          const after = rec ? rec.entries.length : before;
+          const removed = before - after;
+          const ghost = document.createElement("span");
+          ghost.textContent = removed > 0 ? `−${removed}` : "✓";
+          ghost.className = "ghost-float";
+          dedupeBtn.style.position = "relative";
+          dedupeBtn.appendChild(ghost);
+          loadDetail();
+        },
+      );
+    },
   );
 });
 

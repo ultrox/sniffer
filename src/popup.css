@@ -8,6 +8,16 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
   background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: inherit;
 }
 .toolbar button:hover { background: #3a3a4e; }
+.ghost-float {
+  position: absolute; right: 0; top: 0;
+  color: #2ecc71; font-size: 12px; font-weight: bold;
+  pointer-events: none;
+  animation: ghost-up 0.6s ease-out forwards;
+}
+@keyframes ghost-up {
+  0% { opacity: 1; top: 0; }
+  100% { opacity: 0; top: -24px; }
+}
 .toolbar button.active { background: #e74c3c; border-color: #e74c3c; color: #fff; }
 .toolbar button.recording { background: #e74c3c; border-color: #e74c3c; color: #fff; animation: pulse 1s infinite; }
 .count { margin-left: auto; color: #888; }
