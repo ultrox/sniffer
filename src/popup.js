@@ -1422,6 +1422,17 @@ renderFilters();
 renderIgnoreBar();
 renderOriginGroups();
 refresh();
+
+// Auto-open recording detail if ?recording=ID is in the URL
+const urlRecordingId = new URLSearchParams(location.search).get("recording");
+if (urlRecordingId) {
+  // Wait for first refresh to load recordings, then open detail
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (res?.recordings?.some((r) => r.id === urlRecordingId)) {
+      openDetail(urlRecordingId);
+    }
+  });
+}
 setInterval(() => {
   if (currentView === "main") {
     refresh();

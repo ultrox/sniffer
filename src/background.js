@@ -375,6 +375,14 @@ function handleMessage(msg, sender, sendResponse) {
     return true;
   }
 
+  if (msg.type === "openRecording") {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL("src/popup.html?recording=" + msg.recordingId),
+    });
+    sendResponse({});
+    return true;
+  }
+
   if (msg.source === "sniffer-bridge" && msg.type === "init") {
     const tabId = sender.tab?.id;
     const entries = mergedReplayEntries(state, tabId);

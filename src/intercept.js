@@ -243,7 +243,7 @@ import {
           : "";
 
         html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid #222;">` +
-          `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#e0e0e0;" title="${esc(r.name)}">${esc(r.name)}</span>` +
+          `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#e0e0e0;cursor:pointer;" title="${esc(r.name)}" data-action="openRecording" data-id="${r.id}">${esc(r.name)}</span>` +
           recBadge +
           `<span style="font-size:10px;color:#666;white-space:nowrap;">${r.count}</span>` +
           `<button style="${btnStyle}" data-action="${action}" data-id="${r.id}">${btnText}</button>` +
@@ -253,6 +253,11 @@ import {
 
     panelEl.innerHTML = html;
 
+    panelEl.querySelectorAll("[data-action='openRecording']").forEach((el) => {
+      el.addEventListener("mouseenter", () => { el.style.textDecoration = "underline"; });
+      el.addEventListener("mouseleave", () => { el.style.textDecoration = "none"; });
+    });
+
     panelEl.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -261,6 +266,10 @@ import {
         if (action === "close") {
           panelOpen = false;
           if (panelEl) { panelEl.remove(); panelEl = null; }
+          return;
+        }
+        if (action === "openRecording") {
+          post({ type: "openRecording", recordingId: id });
           return;
         }
         if (action === "startReplay") {
