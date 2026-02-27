@@ -385,7 +385,16 @@ function handleMessage(msg, sender, sendResponse) {
 
   if (msg.type === "openDashboard") {
     if (msg.tabId) originTabId = msg.tabId;
-    chrome.tabs.create({ url: chrome.runtime.getURL("src/popup.html") });
+    const popupUrl = chrome.runtime.getURL("src/popup.html");
+    chrome.tabs.query({}, (tabs) => {
+      const existing = tabs.find((t) => t.url?.startsWith(popupUrl));
+      if (existing) {
+        chrome.tabs.update(existing.id, { active: true });
+        chrome.windows.update(existing.windowId, { focused: true });
+      } else {
+        chrome.tabs.create({ url: popupUrl });
+      }
+    });
     sendResponse({});
     return true;
   }
