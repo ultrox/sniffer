@@ -1,10 +1,19 @@
 // Bridge between page context (intercept.js) and background service worker.
 // Runs in ISOLATED world.
 
-// Page -> Background
+// Page -> Background (with optional response relay)
 window.addEventListener("message", (e) => {
   if (e.data?.source !== "sniffer-intercept") return;
-  chrome.runtime.sendMessage(e.data, () => void chrome.runtime.lastError);
+  const reqId = e.data._reqId;
+  chrome.runtime.sendMessage(e.data, (res) => {
+    if (chrome.runtime.lastError) return;
+    if (reqId) {
+      window.postMessage(
+        { source: "sniffer-bg", type: "_response", _reqId: reqId, data: res },
+        "*",
+      );
+    }
+  });
 });
 
 // Background -> Page
