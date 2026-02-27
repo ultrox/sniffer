@@ -37,6 +37,7 @@ export function createInitialState() {
     recordTabId: null,
     recordSourceUrl: null,
     recordEntries: [],
+    recordTargetId: null,
     recordFilters: ["xhr", "fetch"],
     ignorePatterns: [],
     activeReplays: {},
@@ -75,12 +76,33 @@ export function handleRemoveIgnore(state, pattern) {
   };
 }
 
-export function handleStartRecord(state, filters) {
+export function handleStartRecord(state, filters, targetId) {
   return {
     ...state,
     recording: true,
     recordEntries: [],
+    recordTargetId: targetId || null,
     recordFilters: filters || state.recordFilters,
+  };
+}
+
+export function handleCreateAndRecord(state, filters) {
+  const id = Date.now().toString();
+  const rec = {
+    id,
+    name: `Recording ${state.recordings.length + 1}`,
+    timestamp: Date.now(),
+    sourceUrl: null,
+    ignorePatterns: [...state.ignorePatterns],
+    entries: [],
+  };
+  return {
+    ...state,
+    recording: true,
+    recordEntries: [],
+    recordTargetId: id,
+    recordFilters: filters || state.recordFilters,
+    recordings: [...state.recordings, rec],
   };
 }
 
@@ -89,6 +111,7 @@ export function handleStopRecord(state) {
     ...state,
     recording: false,
     recordTabId: null,
+    recordTargetId: null,
   };
 
   if (state.recordEntries.length > 0) {
@@ -102,6 +125,33 @@ export function handleStopRecord(state) {
     };
     newState.recordings = [...state.recordings, rec];
   }
+  newState.recordEntries = [];
+  return newState;
+}
+
+export function handleStopRecordInto(state, targetId) {
+  const newState = {
+    ...state,
+    recording: false,
+    recordTabId: null,
+    recordTargetId: null,
+  };
+
+  let recordings = state.recordings;
+  if (state.recordEntries.length > 0) {
+    recordings = recordings.map((r) => {
+      if (r.id !== targetId) return r;
+      return { ...r, entries: [...r.entries, ...state.recordEntries] };
+    });
+  }
+
+  // Discard target recording if it has 0 total entries after merge
+  const target = recordings.find((r) => r.id === targetId);
+  if (target && target.entries.length === 0) {
+    recordings = recordings.filter((r) => r.id !== targetId);
+  }
+
+  newState.recordings = recordings;
   newState.recordEntries = [];
   return newState;
 }
@@ -343,6 +393,7 @@ export function getStateSnapshot(state) {
     sniffing: state.sniffing,
     requests: state.requests,
     recording: state.recording,
+    recordTargetId: state.recordTargetId,
     replaying: hasActiveReplays(state),
     recordings: state.recordings.map((r) => ({
       id: r.id,

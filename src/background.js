@@ -6,7 +6,9 @@ import {
   handleAddIgnore,
   handleRemoveIgnore,
   handleStartRecord,
+  handleCreateAndRecord,
   handleStopRecord,
+  handleStopRecordInto,
   handleCaptured,
   handleStopReplay,
   handleDeleteRecording,
@@ -125,7 +127,7 @@ function handleMessage(msg, sender, sendResponse) {
   }
 
   if (msg.type === "startRecord") {
-    state = handleStartRecord(state, msg.filters);
+    state = handleStartRecord(state, msg.filters, msg.targetId);
     persist("recordFilters");
     getOriginTab().then((tab) => {
       state.recordTabId = tab?.id ?? null;
@@ -137,9 +139,38 @@ function handleMessage(msg, sender, sendResponse) {
     return true;
   }
 
+  if (msg.type === "createAndRecord") {
+    state = handleCreateAndRecord(state, msg.filters);
+    const recordingId = state.recordTargetId;
+    persist("recordings", "recordFilters");
+    getOriginTab().then((tab) => {
+      state.recordTabId = tab?.id ?? null;
+      state.recordSourceUrl = tab?.url ?? null;
+      // Update the recording's sourceUrl
+      state.recordings = state.recordings.map((r) =>
+        r.id === recordingId ? { ...r, sourceUrl: state.recordSourceUrl } : r,
+      );
+      persist("recordings");
+      if (state.recordTabId) sendToTab(state.recordTabId, "record", []);
+    });
+    sendResponse({ recording: true, recordingId });
+    updateIcon();
+    return true;
+  }
+
   if (msg.type === "stopRecord") {
     const oldTabId = state.recordTabId;
     state = handleStopRecord(state);
+    persist("recordings");
+    if (oldTabId) sendToTab(oldTabId, null, []);
+    sendResponse({ recording: false });
+    updateIcon();
+    return true;
+  }
+
+  if (msg.type === "stopRecordInto") {
+    const oldTabId = state.recordTabId;
+    state = handleStopRecordInto(state, msg.recordingId);
     persist("recordings");
     if (oldTabId) sendToTab(oldTabId, null, []);
     sendResponse({ recording: false });

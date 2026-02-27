@@ -28,7 +28,9 @@ const detailCount = document.getElementById("detailCount");
 const detailPathFilter = document.getElementById("detailPathFilter");
 const detailBodyFilter = document.getElementById("detailBodyFilter");
 const detailEntries = document.getElementById("detailEntries");
+const detailRecordBtn = document.getElementById("detailRecordBtn");
 const detailReplayBtn = document.getElementById("detailReplayBtn");
+const detailSortBtn = document.getElementById("detailSortBtn");
 
 // --- State ---
 const ALL_TYPES = [
@@ -50,6 +52,7 @@ let isRenaming = false;
 let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
+let detailSort = null; // null | "url"
 let pendingVariantRename = null; // { entryIndex, variantIndex } - auto-open rename after load
 
 // --- Helpers ---
@@ -302,11 +305,16 @@ recordBtn.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
     if (!res) return;
     if (res.recording) {
-      chrome.runtime.sendMessage({ type: "stopRecord" }, () => refresh());
+      chrome.runtime.sendMessage(
+        { type: "stopRecordInto", recordingId: res.recordTargetId },
+        () => refresh(),
+      );
     } else {
       chrome.runtime.sendMessage(
-        { type: "startRecord", filters: activeFilters },
-        () => refresh(),
+        { type: "createAndRecord", filters: activeFilters },
+        (resp) => {
+          if (resp?.recordingId) openDetail(resp.recordingId);
+        },
       );
     }
   });
@@ -455,13 +463,16 @@ function showMergePicker(sourceId) {
 function openDetail(recordingId) {
   detailRecordingId = recordingId;
   expandedEntry = -1;
+  detailSort = null;
+  detailSortBtn.classList.remove("active");
+  detailSortBtn.textContent = "Sort";
   currentView = "detail";
   mainView.style.display = "none";
   detailView.style.display = "block";
   loadDetail();
 }
 
-function closeDetail() {
+function doCloseDetail() {
   if (activeJsonEditor) {
     activeJsonEditor.destroy();
     activeJsonEditor = null;
@@ -472,12 +483,28 @@ function closeDetail() {
   refresh();
 }
 
-function updateDetailReplayBtn() {
+function closeDetail() {
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (res?.recording) {
+      chrome.runtime.sendMessage(
+        { type: "stopRecordInto", recordingId: res.recordTargetId },
+        () => doCloseDetail(),
+      );
+    } else {
+      doCloseDetail();
+    }
+  });
+}
+
+function updateDetailButtons() {
   chrome.runtime.sendMessage({ type: "getState" }, (res) => {
     if (!res) return;
     const isReplaying = detailRecordingId in (res.activeReplays || {});
     detailReplayBtn.textContent = isReplaying ? "Stop" : "Replay";
     detailReplayBtn.classList.toggle("active-replay", isReplaying);
+    const isRecordingHere = res.recording && res.recordTargetId === detailRecordingId;
+    detailRecordBtn.textContent = isRecordingHere ? `Stop (${res.recordEntries.length})` : "Record";
+    detailRecordBtn.classList.toggle("recording", isRecordingHere);
   });
 }
 
@@ -505,33 +532,67 @@ function loadDetail() {
         const renameInput = toolbar.querySelector(".rename-input");
         if (renameInput) renameInput.replaceWith(span);
       }
-      detailCount.textContent = `${rec.entries.length} req`;
-      detailAllEntries = rec.entries;
-      detailPathFilter.value = "";
-      detailBodyFilter.value = "";
-      renderDetailEntries(rec.entries);
-      updateDetailReplayBtn();
+
+      // Merge live recordEntries when recording into this recording
+      chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+        let entries = rec.entries;
+        if (res?.recording && res.recordTargetId === detailRecordingId) {
+          entries = [...rec.entries, ...res.recordEntries];
+        }
+        detailCount.textContent = `${entries.length} req`;
+        detailAllEntries = entries;
+        detailPathFilter.value = "";
+        detailBodyFilter.value = "";
+        renderDetailEntries(entries);
+        updateDetailButtons();
+      });
     },
   );
+}
+
+function refreshDetailEntries() {
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res?.recording || res.recordTargetId !== detailRecordingId) return;
+    chrome.runtime.sendMessage(
+      { type: "getRecording", recordingId: detailRecordingId },
+      (rec) => {
+        if (!rec) return;
+        const entries = [...rec.entries, ...res.recordEntries];
+        if (entries.length === detailAllEntries.length) return;
+        detailAllEntries = entries;
+        detailCount.textContent = `${entries.length} req`;
+        applyDetailFilters();
+      },
+    );
+  });
 }
 
 function applyDetailFilters() {
   const pathQ = detailPathFilter.value.trim().toLowerCase();
   const bodyQ = detailBodyFilter.value.trim().toLowerCase();
-  if (!pathQ && !bodyQ) {
-    renderDetailEntries(detailAllEntries);
-    return;
+  let entries = detailAllEntries;
+  if (pathQ || bodyQ) {
+    entries = entries.filter((e) => {
+      if (pathQ && !e.url.toLowerCase().includes(pathQ)) return false;
+      if (bodyQ && !(e.body || "").toLowerCase().includes(bodyQ)) return false;
+      return true;
+    });
   }
-  const filtered = detailAllEntries.filter((e) => {
-    if (pathQ && !e.url.toLowerCase().includes(pathQ)) return false;
-    if (bodyQ && !(e.body || "").toLowerCase().includes(bodyQ)) return false;
-    return true;
-  });
-  renderDetailEntries(filtered);
+  if (detailSort === "url") {
+    entries = [...entries].sort((a, b) => a.url.localeCompare(b.url, undefined, { numeric: true }));
+  }
+  renderDetailEntries(entries);
 }
 
 detailPathFilter.addEventListener("input", applyDetailFilters);
 detailBodyFilter.addEventListener("input", applyDetailFilters);
+
+detailSortBtn.addEventListener("click", () => {
+  detailSort = detailSort ? null : "url";
+  detailSortBtn.classList.toggle("active", !!detailSort);
+  detailSortBtn.textContent = detailSort ? "Sort: URL" : "Sort";
+  applyDetailFilters();
+});
 
 function renderDetailEntries(entries) {
   if (entries.length === 0) {
@@ -673,12 +734,29 @@ function renderDetailEntries(entries) {
 
 backBtn.addEventListener("click", closeDetail);
 
+detailRecordBtn.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res) return;
+    if (res.recording) {
+      chrome.runtime.sendMessage(
+        { type: "stopRecordInto", recordingId: detailRecordingId },
+        () => loadDetail(),
+      );
+    } else {
+      chrome.runtime.sendMessage(
+        { type: "startRecord", filters: res.recordFilters, targetId: detailRecordingId },
+        () => updateDetailButtons(),
+      );
+    }
+  });
+});
+
 detailReplayBtn.addEventListener("click", () => {
   const isReplaying = detailReplayBtn.classList.contains("active-replay");
   const msgType = isReplaying ? "stopReplay" : "startReplay";
   chrome.runtime.sendMessage(
     { type: msgType, recordingId: detailRecordingId },
-    () => updateDetailReplayBtn(),
+    () => updateDetailButtons(),
   );
 });
 
@@ -1199,4 +1277,14 @@ detailEntries.addEventListener("click", (e) => {
 renderFilters();
 renderIgnoreBar();
 refresh();
-setInterval(refresh, 500);
+setInterval(() => {
+  if (currentView === "main") {
+    refresh();
+  } else {
+    updateDetailButtons();
+    // Live-refresh entry list during recording
+    if (detailRecordBtn.classList.contains("recording")) {
+      refreshDetailEntries();
+    }
+  }
+}, 500);

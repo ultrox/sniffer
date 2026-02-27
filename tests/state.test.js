@@ -8,7 +8,9 @@ import {
   handleAddIgnore,
   handleRemoveIgnore,
   handleStartRecord,
+  handleCreateAndRecord,
   handleStopRecord,
+  handleStopRecordInto,
   handleCaptured,
   handleStopReplay,
   handleDeleteRecording,
@@ -119,6 +121,12 @@ describe("handleStartRecord / handleStopRecord", () => {
     expect(next.recording).toBe(true);
     expect(next.recordEntries).toEqual([]);
     expect(next.recordFilters).toEqual(["fetch"]);
+    expect(next.recordTargetId).toBeNull();
+  });
+
+  it("starts recording with targetId", () => {
+    const next = handleStartRecord(createInitialState(), ["fetch"], "r1");
+    expect(next.recordTargetId).toBe("r1");
   });
 
   it("stops and saves recording", () => {
@@ -139,6 +147,72 @@ describe("handleStartRecord / handleStopRecord", () => {
     const state = { ...createInitialState(), recording: true };
     const next = handleStopRecord(state);
     expect(next.recordings).toHaveLength(0);
+  });
+});
+
+describe("handleCreateAndRecord", () => {
+  it("creates a new recording and starts recording into it", () => {
+    const state = createInitialState();
+    const next = handleCreateAndRecord(state, ["fetch"]);
+    expect(next.recording).toBe(true);
+    expect(next.recordEntries).toEqual([]);
+    expect(next.recordFilters).toEqual(["fetch"]);
+    expect(next.recordings).toHaveLength(1);
+    expect(next.recordings[0].entries).toEqual([]);
+    expect(next.recordings[0].name).toBe("Recording 1");
+    expect(next.recordTargetId).toBe(next.recordings[0].id);
+  });
+
+  it("copies current ignorePatterns to new recording", () => {
+    const state = { ...createInitialState(), ignorePatterns: ["/ads"] };
+    const next = handleCreateAndRecord(state);
+    expect(next.recordings[0].ignorePatterns).toEqual(["/ads"]);
+  });
+});
+
+describe("handleStopRecordInto", () => {
+  it("appends captured entries to existing recording", () => {
+    const state = {
+      ...createInitialState(),
+      recording: true,
+      recordEntries: [{ url: "b", kind: "fetch" }],
+      recordings: [
+        { id: "r1", name: "Rec 1", entries: [{ url: "a", kind: "xhr" }] },
+      ],
+    };
+    const next = handleStopRecordInto(state, "r1");
+    expect(next.recording).toBe(false);
+    expect(next.recordings).toHaveLength(1);
+    expect(next.recordings[0].entries).toHaveLength(2);
+    expect(next.recordings[0].entries[1].url).toBe("b");
+    expect(next.recordEntries).toEqual([]);
+  });
+
+  it("does nothing with empty record entries", () => {
+    const state = {
+      ...createInitialState(),
+      recording: true,
+      recordEntries: [],
+      recordings: [
+        { id: "r1", name: "Rec 1", entries: [{ url: "a", kind: "xhr" }] },
+      ],
+    };
+    const next = handleStopRecordInto(state, "r1");
+    expect(next.recordings[0].entries).toHaveLength(1);
+  });
+
+  it("discards target recording if it has 0 entries after merge", () => {
+    const state = {
+      ...createInitialState(),
+      recording: true,
+      recordEntries: [],
+      recordings: [
+        { id: "r1", name: "Empty", entries: [] },
+      ],
+    };
+    const next = handleStopRecordInto(state, "r1");
+    expect(next.recordings).toHaveLength(0);
+    expect(next.recordTargetId).toBeNull();
   });
 });
 
