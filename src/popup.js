@@ -763,6 +763,13 @@ detailReplayBtn.addEventListener("click", () => {
 // --- Import picker ---
 const importBtn = document.getElementById("importBtn");
 
+document.getElementById("dedupeBtn").addEventListener("click", () => {
+  chrome.runtime.sendMessage(
+    { type: "dedupeEntries", recordingId: detailRecordingId },
+    () => loadDetail(),
+  );
+});
+
 importBtn.addEventListener("click", () => {
   const existing = detailView.querySelector(".import-picker");
   if (existing) {

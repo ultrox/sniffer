@@ -232,6 +232,20 @@ export function handleUpdateEntry(state, recordingId, index, updates) {
   return { ...state, recordings };
 }
 
+export function handleDedupeEntries(state, recordingId) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    const seen = new Set();
+    const entries = r.entries.filter((e) => {
+      if (seen.has(e.url)) return false;
+      seen.add(e.url);
+      return true;
+    });
+    return { ...r, entries };
+  });
+  return { ...state, recordings };
+}
+
 export function handleDeleteEntry(state, recordingId, index) {
   const recordings = state.recordings.map((r) => {
     if (r.id !== recordingId) return r;

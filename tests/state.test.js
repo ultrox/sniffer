@@ -18,6 +18,7 @@ import {
   handleMergeRecording,
   handleRenameRecording,
   handleUpdateEntry,
+  handleDedupeEntries,
   handleDeleteEntry,
   handleAddRecordingIgnore,
   handleRemoveRecordingIgnore,
@@ -342,6 +343,29 @@ describe("handleUpdateEntry", () => {
     const next = handleUpdateEntry(state, "1", 0, { status: 404 });
     expect(next.recordings[0].entries[0].status).toBe(404);
     expect(next.recordings[0].entries[0].url).toBe("a");
+  });
+});
+
+describe("handleDedupeEntries", () => {
+  it("removes entries with duplicate URLs, keeping first", () => {
+    const state = {
+      ...createInitialState(),
+      recordings: [{
+        id: "1",
+        entries: [
+          { url: "/api/pokemon/1", body: "first" },
+          { url: "/api/pokemon/4", body: "x" },
+          { url: "/api/pokemon/1", body: "second" },
+          { url: "/api/pokemon/1", body: "third" },
+          { url: "/api/pokemon/4", body: "y" },
+        ],
+      }],
+    };
+    const next = handleDedupeEntries(state, "1");
+    expect(next.recordings[0].entries).toHaveLength(2);
+    expect(next.recordings[0].entries[0].url).toBe("/api/pokemon/1");
+    expect(next.recordings[0].entries[0].body).toBe("first");
+    expect(next.recordings[0].entries[1].url).toBe("/api/pokemon/4");
   });
 });
 

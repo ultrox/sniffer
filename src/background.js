@@ -16,6 +16,7 @@ import {
   handleMergeRecording,
   handleRenameRecording,
   handleUpdateEntry,
+  handleDedupeEntries,
   handleDeleteEntry,
   handleAddRecordingIgnore,
   handleRemoveRecordingIgnore,
@@ -264,6 +265,13 @@ function handleMessage(msg, sender, sendResponse) {
     persist("recordings");
     const replayTabId = state.activeReplays[msg.recordingId];
     if (replayTabId) syncReplayToTab(replayTabId);
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "dedupeEntries") {
+    state = handleDedupeEntries(state, msg.recordingId);
+    persist("recordings");
     sendResponse({});
     return true;
   }
