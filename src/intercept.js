@@ -159,10 +159,10 @@ import {
   let wrapperEl = null;
 
   const CORNERS = {
-    br: { bottom: "12px", right: "12px", flexDir: "column", badgeAlign: "margin-left:auto;" },
-    bl: { bottom: "12px", left: "12px", flexDir: "column", badgeAlign: "margin-right:auto;" },
-    tr: { top: "12px", right: "12px", flexDir: "column-reverse", badgeAlign: "margin-left:auto;" },
-    tl: { top: "12px", left: "12px", flexDir: "column-reverse", badgeAlign: "margin-right:auto;" },
+    br: { bottom: "12px", right: "12px", badgeAlign: "margin-left:auto;" },
+    bl: { bottom: "12px", left: "12px", badgeAlign: "margin-right:auto;" },
+    tr: { top: "12px", right: "12px", badgeAlign: "margin-left:auto;" },
+    tl: { top: "12px", left: "12px", badgeAlign: "margin-right:auto;" },
   };
 
   let corner = "br";
@@ -173,7 +173,8 @@ import {
   function applyCorner() {
     if (!wrapperEl) return;
     const c = CORNERS[corner] || CORNERS.br;
-    wrapperEl.style.cssText = `position:fixed;z-index:2147483647;font:11px/1.4 monospace;color:#fff;display:flex;flex-direction:${c.flexDir};`;
+    const isBottom = corner.startsWith("b");
+    wrapperEl.style.cssText = `position:fixed;z-index:2147483647;font:11px/1.4 monospace;color:#fff;display:flex;flex-direction:${isBottom ? "column-reverse" : "column"};`;
     wrapperEl.style.top = c.top || "auto";
     wrapperEl.style.bottom = c.bottom || "auto";
     wrapperEl.style.left = c.left || "auto";
@@ -243,13 +244,8 @@ import {
     ensureWrapper();
     if (!panelEl) {
       panelEl = document.createElement("div");
-      const isTop = corner.startsWith("t");
-      panelEl.style.cssText = `background:#1a1a2e;border:1px solid #444;border-radius:8px;width:280px;max-height:320px;overflow-y:auto;${isTop ? "margin-top" : "margin-bottom"}:6px;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
-      if (isTop) {
-        wrapperEl.appendChild(panelEl);
-      } else {
-        wrapperEl.insertBefore(panelEl, badgeEl);
-      }
+      panelEl.style.cssText = `background:#1a1a2e;border:1px solid #444;border-radius:8px;width:280px;max-height:320px;overflow-y:auto;margin:6px 0;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+      wrapperEl.appendChild(panelEl);
     }
 
     const recs = res.recordings || [];
