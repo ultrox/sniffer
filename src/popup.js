@@ -51,6 +51,8 @@ let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
 let isImporting = false;
+let isVariantPicking = false;
+let pendingVariantRename = null; // { entryIndex, variantIndex } - auto-open rename after load
 
 // --- Helpers ---
 function renderPayload(payload) {
@@ -613,12 +615,14 @@ function renderDetailEntries(entries) {
             if (variants && variants.length > 0) {
               const active = e.activeVariant || 0;
               return `<div class="variant-bar" data-index="${i}">
-                ${variants.map((v, vi) => `<span class="variant-tab ${vi === active ? "active" : ""}" data-vi="${vi}"><span class="variant-name">${esc(v.name)}</span>${variants.length > 1 ? `<span class="variant-del" data-vi="${vi}">x</span>` : ""}</span>`).join("")}
+                ${variants.map((v, vi) => `<span class="variant-tab ${vi === active ? "active" : ""}" data-vi="${vi}">${esc(v.name)}${vi === active ? `<span class="variant-edit" data-vi="${vi}">edit</span>${variants.length > 1 ? `<span class="variant-del" data-vi="${vi}">x</span>` : ""}` : ""}</span>`).join("")}
                 <button class="variant-add" data-index="${i}">+</button>
+                <button class="variant-pick" data-index="${i}">Copy from...</button>
               </div>`;
             }
             return `<div class="variant-bar" data-index="${i}">
               <button class="variant-add" data-index="${i}">+</button>
+              <button class="variant-pick" data-index="${i}">Copy from...</button>
             </div>`;
           })()}
           <label>Response body</label>
@@ -659,6 +663,14 @@ function renderDetailEntries(entries) {
       textarea.textContent = body;
       container.replaceWith(textarea);
     }
+  }
+
+  // Auto-open rename on a newly added variant
+  if (pendingVariantRename) {
+    const { entryIndex: ei, variantIndex: vi } = pendingVariantRename;
+    pendingVariantRename = null;
+    const tab = detailEntries.querySelector(`.variant-bar[data-index="${ei}"] .variant-tab[data-vi="${vi}"] .variant-edit`);
+    if (tab) tab.click();
   }
 }
 
@@ -797,6 +809,140 @@ function showImportPicker() {
   });
 }
 
+// --- Variant picker (copy body from another entry) ---
+function showVariantPicker(entryIndex) {
+  const existing = detailEntries.querySelector(".variant-picker");
+  if (existing) {
+    existing.remove();
+    isVariantPicking = false;
+    return;
+  }
+
+  isVariantPicking = true;
+
+  chrome.runtime.sendMessage({ type: "getState" }, (res) => {
+    if (!res) return;
+
+    const picker = document.createElement("div");
+    picker.className = "variant-picker";
+
+    const header = document.createElement("div");
+    header.className = "variant-picker-header";
+
+    const others = res.recordings.filter((r) => r.id !== detailRecordingId);
+    header.innerHTML =
+      `<span class="merge-label">Copy body from:</span>` +
+      `<button class="variant-picker-source active" data-id="${detailRecordingId}">This recording</button>` +
+      others
+        .map(
+          (r) =>
+            `<button class="variant-picker-source" data-id="${r.id}">${esc(r.name)}</button>`,
+        )
+        .join("") +
+      `<button class="merge-cancel">Close</button>`;
+    picker.appendChild(header);
+
+    const entriesDiv = document.createElement("div");
+    entriesDiv.className = "variant-picker-entries";
+    picker.appendChild(entriesDiv);
+
+    // Insert picker after the variant bar
+    const variantBar = detailEntries.querySelector(`.variant-bar[data-index="${entryIndex}"]`);
+    if (variantBar) {
+      variantBar.after(picker);
+    }
+
+    const closePicker = () => {
+      picker.remove();
+      isVariantPicking = false;
+      document.removeEventListener("keydown", onKey);
+    };
+
+    const loadEntries = (recordingId) => {
+      header
+        .querySelectorAll(".variant-picker-source")
+        .forEach((b) =>
+          b.classList.toggle("active", b.dataset.id === recordingId),
+        );
+      chrome.runtime.sendMessage(
+        { type: "getRecording", recordingId },
+        (rec) => {
+          if (!rec) {
+            entriesDiv.innerHTML = "";
+            return;
+          }
+          const isSameRecording = recordingId === detailRecordingId;
+          const rows = rec.entries
+            .map((e, i) => {
+              if (isSameRecording && i === entryIndex) return "";
+              return `<div class="variant-picker-row" data-index="${i}">
+                <span class="method ${e.method}">${e.method}</span>
+                <span class="type">${e.kind || ""}</span>
+                <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
+                <span class="size">${fmtSize(e.body)}</span>
+                <button class="variant-picker-add" data-index="${i}">Copy</button>
+              </div>`;
+            })
+            .filter(Boolean)
+            .join("");
+          entriesDiv.innerHTML = rows || '<div class="empty">No entries</div>';
+
+          entriesDiv.onclick = (ev) => {
+            const addBtn = ev.target.closest(".variant-picker-add");
+            if (!addBtn) return;
+            const idx = parseInt(addBtn.dataset.index);
+            const entry = rec.entries[idx];
+            if (!entry) return;
+            const path = getPath(entry.url);
+            const name = path.split("/").filter(Boolean).pop() || "imported";
+            closePicker();
+            chrome.runtime.sendMessage(
+              {
+                type: "addVariant",
+                recordingId: detailRecordingId,
+                index: entryIndex,
+                name,
+                body: entry.body || "",
+              },
+              () => {
+                // After load, auto-open rename on the new variant (last one)
+                chrome.runtime.sendMessage(
+                  { type: "getRecording", recordingId: detailRecordingId },
+                  (rec) => {
+                    if (!rec) return;
+                    const entry = rec.entries[entryIndex];
+                    if (entry?.bodyVariants) {
+                      pendingVariantRename = { entryIndex, variantIndex: entry.bodyVariants.length - 1 };
+                    }
+                    loadDetail();
+                  },
+                );
+              },
+            );
+          };
+        },
+      );
+    };
+
+    header.addEventListener("click", (ev) => {
+      const src = ev.target.closest(".variant-picker-source");
+      if (src) {
+        loadEntries(src.dataset.id);
+        return;
+      }
+      if (ev.target.closest(".merge-cancel")) closePicker();
+    });
+
+    const onKey = (e) => {
+      if (e.key === "Escape") closePicker();
+    };
+    document.addEventListener("keydown", onKey);
+
+    // Load current recording entries by default
+    loadEntries(detailRecordingId);
+  });
+}
+
 detailView.addEventListener("click", (e) => {
   const titleEl = e.target.closest("#detailTitle");
   if (!titleEl) return;
@@ -927,15 +1073,42 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
-  const variantTab = e.target.closest(".variant-tab");
-  if (variantTab && !e.target.closest(".variant-del")) {
-    const bar = variantTab.closest(".variant-bar");
+  const variantPick = e.target.closest(".variant-pick");
+  if (variantPick) {
+    const idx = parseInt(variantPick.dataset.index);
+    showVariantPicker(idx);
+    return;
+  }
+
+  const variantEdit = e.target.closest(".variant-edit");
+  if (variantEdit) {
+    const tab = variantEdit.closest(".variant-tab");
+    const bar = tab.closest(".variant-bar");
     const idx = parseInt(bar.dataset.index);
-    const vi = parseInt(variantTab.dataset.vi);
-    chrome.runtime.sendMessage(
-      { type: "setActiveVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi },
-      () => loadDetail(),
-    );
+    const vi = parseInt(tab.dataset.vi);
+    // Get the name text (tab text minus the "edit" button text)
+    const currentName = tab.childNodes[0].textContent.trim();
+    const input = document.createElement("input");
+    input.className = "variant-rename";
+    input.value = currentName;
+    // Replace tab contents with input
+    tab.innerHTML = "";
+    tab.appendChild(input);
+    input.focus();
+    input.select();
+    const commit = () => {
+      const name = input.value.trim() || currentName;
+      chrome.runtime.sendMessage(
+        { type: "renameVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi, name },
+        () => loadDetail(),
+      );
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") commit();
+      if (ev.key === "Escape") loadDetail();
+    });
+    input.addEventListener("blur", commit);
+    e.stopPropagation();
     return;
   }
 
@@ -951,32 +1124,15 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
-  const variantName = e.target.closest(".variant-name");
-  if (variantName) {
-    const tab = variantName.closest(".variant-tab");
-    const bar = tab.closest(".variant-bar");
+  const variantTab = e.target.closest(".variant-tab");
+  if (variantTab) {
+    const bar = variantTab.closest(".variant-bar");
     const idx = parseInt(bar.dataset.index);
-    const vi = parseInt(tab.dataset.vi);
-    const current = variantName.textContent;
-    const input = document.createElement("input");
-    input.className = "variant-rename";
-    input.value = current;
-    variantName.replaceWith(input);
-    input.focus();
-    input.select();
-    const commit = () => {
-      const name = input.value.trim() || current;
-      chrome.runtime.sendMessage(
-        { type: "renameVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi, name },
-        () => loadDetail(),
-      );
-    };
-    input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") commit();
-      if (ev.key === "Escape") loadDetail();
-    });
-    input.addEventListener("blur", commit);
-    e.stopPropagation();
+    const vi = parseInt(variantTab.dataset.vi);
+    chrome.runtime.sendMessage(
+      { type: "setActiveVariant", recordingId: detailRecordingId, index: idx, variantIndex: vi },
+      () => loadDetail(),
+    );
     return;
   }
 
@@ -1023,18 +1179,14 @@ detailEntries.addEventListener("click", (e) => {
       updates.bodyVariants = variants;
     }
     if (payload !== null) updates.payload = payload;
-    chrome.runtime.sendMessage(
-      {
-        type: "updateEntry",
-        recordingId: detailRecordingId,
-        index: idx,
-        updates,
-      },
-      () => {
-        saveBtn.classList.add("saved");
-        setTimeout(() => saveBtn.classList.remove("saved"), 600);
-      },
-    );
+    saveBtn.classList.add("saved");
+    setTimeout(() => saveBtn.classList.remove("saved"), 200);
+    chrome.runtime.sendMessage({
+      type: "updateEntry",
+      recordingId: detailRecordingId,
+      index: idx,
+      updates,
+    });
     return;
   }
 
