@@ -254,9 +254,9 @@ export function handleUpdateEntry(state, recordingId, index, updates) {
 }
 
 export function handleDedupeEntries(state, recordingId) {
+  const seen = new Set();
   const recordings = state.recordings.map((r) => {
     if (r.id !== recordingId) return r;
-    const seen = new Set();
     const entries = r.entries.filter((e) => {
       if (seen.has(e.url)) return false;
       seen.add(e.url);
@@ -264,7 +264,16 @@ export function handleDedupeEntries(state, recordingId) {
     });
     return { ...r, entries };
   });
-  return { ...state, recordings };
+  // Also dedupe live recordEntries if recording into this recording
+  let recordEntries = state.recordEntries;
+  if (state.recording && state.recordTargetId === recordingId) {
+    recordEntries = recordEntries.filter((e) => {
+      if (seen.has(e.url)) return false;
+      seen.add(e.url);
+      return true;
+    });
+  }
+  return { ...state, recordings, recordEntries };
 }
 
 export function handleDeleteEntry(state, recordingId, index) {

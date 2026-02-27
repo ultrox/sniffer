@@ -941,21 +941,26 @@ const importBtn = document.getElementById("importBtn");
 
 const dedupeBtn = document.getElementById("dedupeBtn");
 dedupeBtn.addEventListener("click", () => {
-  const before = detailAllEntries.length;
   chrome.runtime.sendMessage(
-    { type: "dedupeEntries", recordingId: detailRecordingId },
-    () => {
+    { type: "getRecording", recordingId: detailRecordingId },
+    (recBefore) => {
+      const before = recBefore ? recBefore.entries.length : 0;
       chrome.runtime.sendMessage(
-        { type: "getRecording", recordingId: detailRecordingId },
-        (rec) => {
-          const after = rec ? rec.entries.length : before;
-          const removed = before - after;
-          const ghost = document.createElement("span");
-          ghost.textContent = removed > 0 ? `−${removed}` : "✓";
-          ghost.className = "ghost-float";
-          dedupeBtn.style.position = "relative";
-          dedupeBtn.appendChild(ghost);
-          loadDetail();
+        { type: "dedupeEntries", recordingId: detailRecordingId },
+        () => {
+          chrome.runtime.sendMessage(
+            { type: "getRecording", recordingId: detailRecordingId },
+            (rec) => {
+              const after = rec ? rec.entries.length : before;
+              const removed = before - after;
+              const ghost = document.createElement("span");
+              ghost.textContent = removed > 0 ? `−${removed}` : "✓";
+              ghost.className = "ghost-float";
+              dedupeBtn.style.position = "relative";
+              dedupeBtn.appendChild(ghost);
+              loadDetail();
+            },
+          );
         },
       );
     },
