@@ -365,6 +365,26 @@ export function handleRenameVariant(state, recordingId, entryIndex, variantIndex
   });
 }
 
+export function handleToggleEntry(state, recordingId, index) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    if (index < 0 || index >= r.entries.length) return r;
+    const entries = [...r.entries];
+    entries[index] = { ...entries[index], disabled: !entries[index].disabled };
+    return { ...r, entries };
+  });
+  return { ...state, recordings };
+}
+
+export function handleToggleAllEntries(state, recordingId, disabled) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    const entries = r.entries.map((e) => ({ ...e, disabled }));
+    return { ...r, entries };
+  });
+  return { ...state, recordings };
+}
+
 export function handleReplayed(state) {
   return { ...state, replayHitCount: state.replayHitCount + 1 };
 }
@@ -414,7 +434,7 @@ export function mergedReplayEntries(state, tabId) {
   for (const [recId, tid] of Object.entries(state.activeReplays)) {
     if (tid !== tabId) continue;
     const rec = state.recordings.find((r) => r.id === recId);
-    if (rec) entries.push(...rec.entries);
+    if (rec) entries.push(...rec.entries.filter((e) => !e.disabled));
   }
   return entries;
 }

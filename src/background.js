@@ -23,6 +23,8 @@ import {
   handleSetOriginGroups,
   handleSetRecordingOriginGroups,
   activeOriginGroupsForRecording,
+  handleToggleEntry,
+  handleToggleAllEntries,
   handleSetActiveVariant,
   handleAddVariant,
   handleDeleteVariant,
@@ -325,6 +327,24 @@ function handleMessage(msg, sender, sendResponse) {
   if (msg.type === "deleteEntry") {
     state = handleDeleteEntry(state, msg.recordingId, msg.index);
     persist("recordings");
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "toggleEntry") {
+    state = handleToggleEntry(state, msg.recordingId, msg.index);
+    persist("recordings");
+    const tabId = state.activeReplays[msg.recordingId];
+    if (tabId) syncReplayToTab(tabId);
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "toggleAllEntries") {
+    state = handleToggleAllEntries(state, msg.recordingId, msg.disabled);
+    persist("recordings");
+    const tabId = state.activeReplays[msg.recordingId];
+    if (tabId) syncReplayToTab(tabId);
     sendResponse({});
     return true;
   }

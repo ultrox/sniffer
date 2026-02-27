@@ -258,7 +258,7 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 
 /* Detail view */
 .detail-search { padding: 6px 8px; border-bottom: 1px solid #333; display: flex; gap: 6px; }
-.detail-search input {
+.detail-search input:not([type="checkbox"]) {
   flex: 1; padding: 4px 8px;
   background: #2a2a3e; border: 1px solid #444; border-radius: 4px;
   color: #e0e0e0; font: 11px monospace; outline: none;
@@ -277,9 +277,16 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 }
 .detail-entry:hover { background: #2a2a3e; }
 .detail-row {
-  display: grid; grid-template-columns: 56px 48px 1fr 44px 40px 20px;
+  display: grid; grid-template-columns: 20px 56px 48px 1fr 44px 40px 20px;
   gap: 8px; padding: 4px 8px; align-items: center;
 }
+.detail-row.no-toggle {
+  grid-template-columns: 56px 48px 1fr 44px 40px 20px;
+}
+.detail-toggle-all { cursor: pointer; accent-color: #7a7aaa; }
+.detail-entry-toggle { cursor: pointer; accent-color: #7a7aaa; }
+.detail-entry.disabled .detail-row { opacity: 0.4; }
+.detail-entry.disabled .detail-entry-toggle { opacity: 1; }
 .size { color: #666; font-size: 10px; text-align: right; }
 .detail-del { color: #e74c3c; cursor: pointer; font-size: 11px; text-align: center; }
 .detail-del:hover { color: #ff6b6b; }

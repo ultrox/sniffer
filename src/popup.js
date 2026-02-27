@@ -52,6 +52,7 @@ let isMerging = false;
 let lastRecKey = "";
 let activeJsonEditor = null;
 let detailSort = null; // null | "url"
+let entryTogglesVisible = false;
 let pendingVariantRename = null; // { entryIndex, variantIndex } - auto-open rename after load
 
 // --- Helpers ---
@@ -547,6 +548,7 @@ function openDetail(recordingId) {
   detailRecordingId = recordingId;
   expandedEntry = -1;
   detailSort = null;
+  entryTogglesVisible = false;
   detailSortBtn.classList.remove("active");
   detailSortBtn.textContent = "Sort";
   detailPathFilter.value = "";
@@ -678,6 +680,7 @@ function loadDetail() {
         }
         detailCount.textContent = `${entries.length} req`;
         detailAllEntries = entries;
+        if (entries.some((entry) => entry.disabled)) entryTogglesVisible = true;
         applyDetailFilters();
         updateDetailButtons();
         renderDetailOriginGroups();
@@ -730,6 +733,31 @@ detailSortBtn.addEventListener("click", () => {
   applyDetailFilters();
 });
 
+detailView.querySelector(".detail-toggle-all").addEventListener("change", (e) => {
+  const allEnabled = detailAllEntries.length > 0 && detailAllEntries.every((entry) => !entry.disabled);
+  if (allEnabled && !entryTogglesVisible) {
+    // Enter editing mode without disabling anything
+    entryTogglesVisible = true;
+    e.target.checked = true;
+    e.target.indeterminate = true;
+    applyDetailFilters();
+    return;
+  }
+  if (e.target.checked) {
+    // Re-enable all and exit editing mode
+    entryTogglesVisible = false;
+    chrome.runtime.sendMessage(
+      { type: "toggleAllEntries", recordingId: detailRecordingId, disabled: false },
+      () => loadDetail(),
+    );
+  } else {
+    chrome.runtime.sendMessage(
+      { type: "toggleAllEntries", recordingId: detailRecordingId, disabled: true },
+      () => loadDetail(),
+    );
+  }
+});
+
 function renderDetailEntries(entries) {
   if (entries.length === 0) {
     detailEntries.innerHTML =
@@ -737,10 +765,22 @@ function renderDetailEntries(entries) {
     return;
   }
 
+  // Update toggle-all checkbox state
+  const toggleAll = detailView.querySelector(".detail-toggle-all");
+  const allEnabled = entries.length > 0 && entries.every((e) => !e.disabled);
+  const someEnabled = entries.some((e) => !e.disabled);
+  if (toggleAll) {
+    toggleAll.checked = allEnabled;
+    toggleAll.indeterminate = (someEnabled && !allEnabled) || (allEnabled && entryTogglesVisible);
+  }
+  const showPerEntry = !allEnabled || entryTogglesVisible;
+
   detailEntries.innerHTML = entries
     .map((e, i) => {
+      const checked = !e.disabled;
       const row = `
-      <div class="detail-row" data-index="${i}">
+      <div class="detail-row${showPerEntry ? "" : " no-toggle"}" data-index="${i}">
+        ${showPerEntry ? `<input type="checkbox" class="detail-entry-toggle" data-index="${i}" ${checked ? "checked" : ""}>` : ""}
         <span class="method ${e.method}">${e.method}</span>
         <span class="type">${e.kind || ""}</span>
         <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
@@ -823,9 +863,9 @@ function renderDetailEntries(entries) {
           })()}
           <div class="jsoneditor-container" data-index="${i}"></div>
         </div>`;
-        return `<div class="detail-entry expanded">${row}${form}</div>`;
+        return `<div class="detail-entry expanded${e.disabled ? " disabled" : ""}">${row}${form}</div>`;
       }
-      return `<div class="detail-entry">${row}</div>`;
+      return `<div class="detail-entry${e.disabled ? " disabled" : ""}">${row}</div>`;
     })
     .join("");
 
@@ -1256,6 +1296,16 @@ detailEntries.addEventListener("click", (e) => {
     return;
   }
 
+  const toggleCb = e.target.closest(".detail-entry-toggle");
+  if (toggleCb) {
+    const idx = parseInt(toggleCb.dataset.index);
+    chrome.runtime.sendMessage(
+      { type: "toggleEntry", recordingId: detailRecordingId, index: idx },
+      () => loadDetail(),
+    );
+    return;
+  }
+
   const delEl = e.target.closest(".detail-del");
   if (delEl) {
     const idx = parseInt(delEl.dataset.index);
@@ -1420,7 +1470,7 @@ detailEntries.addEventListener("click", (e) => {
   }
 
   const row = e.target.closest(".detail-row");
-  if (row) {
+  if (row && !e.target.closest(".detail-entry-toggle")) {
     const idx = parseInt(row.dataset.index);
     expandedEntry = expandedEntry === idx ? -1 : idx;
     loadDetail();
