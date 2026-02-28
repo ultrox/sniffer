@@ -8,8 +8,14 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
   background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: inherit;
 }
 .toolbar button:hover { background: #3a3a4e; }
-.toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
-.toolbar button:disabled:hover { background: #2a2a3e; }
+.toolbar button.btn-disabled { opacity: 0.4; cursor: default; }
+.toolbar button.btn-disabled:hover { background: #2a2a3e; }
+.hint-popover {
+  position: fixed; position-area: bottom span-left;
+  margin: 0; padding: 4px 8px; border: 1px solid #444; border-radius: 4px;
+  background: #1a1a2e; color: #aaa; font: 11px/1.4 monospace;
+  width: max-content; max-width: 250px;
+}
 .ghost-float {
   position: absolute; right: 0; top: 0;
   color: #2ecc71; font-size: 12px; font-weight: bold;

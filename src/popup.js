@@ -10,6 +10,38 @@ import {
   buildUrlFromParts,
 } from "./logic/helpers.js";
 
+// --- Hint popover (data-hint="text" on any element) ---
+let hintPopover = null;
+let hintTimer = null;
+function showHint(anchor) {
+  hideHint();
+  hintPopover = document.createElement("div");
+  hintPopover.popover = "manual";
+  hintPopover.className = "hint-popover";
+  hintPopover.textContent = anchor.dataset.hint;
+  const id = `--hint-${Date.now()}`;
+  hintPopover.style.positionAnchor = id;
+  anchor.style.anchorName = id;
+  document.body.appendChild(hintPopover);
+  hintPopover.showPopover();
+}
+function hideHint() {
+  clearTimeout(hintTimer);
+  if (hintPopover) { hintPopover.hidePopover(); hintPopover.remove(); hintPopover = null; }
+}
+document.addEventListener("mouseenter", (e) => {
+  const el = e.target.closest("[data-hint]");
+  if (!el || !el.dataset.hint) return;
+  hintTimer = setTimeout(() => showHint(el), 1400);
+}, true);
+document.addEventListener("mouseleave", (e) => {
+  if (e.target.closest("[data-hint]")) hideHint();
+}, true);
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-hint-click]");
+  if (el?.dataset.hint) { hideHint(); showHint(el); }
+}, true);
+
 // --- Elements ---
 const mainView = document.getElementById("mainView");
 const detailView = document.getElementById("detailView");
@@ -584,8 +616,10 @@ function updateDetailButtons() {
     detailRecordBtn.textContent = isRecordingHere ? `Stop (${res.recordEntries.length})` : "Record";
     detailRecordBtn.classList.toggle("recording", isRecordingHere);
     const others = (res.recordings || []).filter((r) => r.id !== detailRecordingId);
-    importBtn.disabled = others.length === 0;
-    importBtn.title = others.length === 0 ? "No other recordings to import from" : "";
+    const noOthers = others.length === 0;
+    importBtn.classList.toggle("btn-disabled", noOthers);
+    importBtn.dataset.hint = noOthers ? "No other recordings to import from" : "";
+    importBtn.toggleAttribute("data-hint-click", noOthers);
   });
 }
 
@@ -1017,6 +1051,7 @@ dedupeBtn.addEventListener("click", () => {
 });
 
 importBtn.addEventListener("click", () => {
+  if (importBtn.classList.contains("btn-disabled")) return;
   const existing = detailView.querySelector(".import-picker");
   if (existing) {
     existing.remove();
