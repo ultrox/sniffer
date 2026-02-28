@@ -583,6 +583,9 @@ function updateDetailButtons() {
     const isRecordingHere = res.recording && res.recordTargetId === detailRecordingId;
     detailRecordBtn.textContent = isRecordingHere ? `Stop (${res.recordEntries.length})` : "Record";
     detailRecordBtn.classList.toggle("recording", isRecordingHere);
+    const others = (res.recordings || []).filter((r) => r.id !== detailRecordingId);
+    importBtn.disabled = others.length === 0;
+    importBtn.title = others.length === 0 ? "No other recordings to import from" : "";
   });
 }
 

@@ -8,6 +8,8 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
   background: #2a2a3e; color: #e0e0e0; cursor: pointer; font: inherit;
 }
 .toolbar button:hover { background: #3a3a4e; }
+.toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.toolbar button:disabled:hover { background: #2a2a3e; }
 .ghost-float {
   position: absolute; right: 0; top: 0;
   color: #2ecc71; font-size: 12px; font-weight: bold;
