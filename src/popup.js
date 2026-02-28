@@ -666,6 +666,25 @@ function loadDetail() {
         if (renameInput) renameInput.replaceWith(span);
       }
 
+      // Render meta (description + source URL)
+      const metaEl = document.getElementById("detailMeta");
+      let sourceHtml = "";
+      if (rec.sourceUrl) {
+        try {
+          const u = new URL(rec.sourceUrl);
+          sourceHtml = `<div class="detail-source" title="${esc(rec.sourceUrl)}">Captured on ${esc(u.host + u.pathname)}</div>`;
+        } catch {}
+      }
+      metaEl.innerHTML = `<textarea class="detail-desc" rows="1" placeholder="Add description...">${esc(rec.description || "")}</textarea>${sourceHtml}`;
+      const descEl = metaEl.querySelector(".detail-desc");
+      descEl.addEventListener("blur", () => {
+        chrome.runtime.sendMessage({
+          type: "updateRecording",
+          recordingId: detailRecordingId,
+          updates: { description: descEl.value },
+        });
+      });
+
       detailOriginGroupIds = rec.originGroupIds || [];
 
       // Merge live recordEntries when recording into this recording

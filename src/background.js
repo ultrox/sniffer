@@ -15,6 +15,7 @@ import {
   handleCopyEntries,
   handleMergeRecording,
   handleRenameRecording,
+  handleUpdateRecording,
   handleUpdateEntry,
   handleDedupeEntries,
   handleDeleteEntry,
@@ -312,6 +313,13 @@ function handleMessage(msg, sender, sendResponse) {
 
   if (msg.type === "renameRecording") {
     state = handleRenameRecording(state, msg.recordingId, msg.name);
+    persist("recordings");
+    sendResponse({});
+    return true;
+  }
+
+  if (msg.type === "updateRecording") {
+    state = handleUpdateRecording(state, msg.recordingId, msg.updates);
     persist("recordings");
     sendResponse({});
     return true;

@@ -267,6 +267,15 @@ body { max-width: 900px; margin: 0 auto; font: 13px/1.4 monospace; background: #
 }
 
 /* Detail view */
+.detail-meta { padding: 4px 8px; border-bottom: 1px solid #333; }
+.detail-meta .detail-desc {
+  width: 100%; padding: 3px 6px; background: transparent; border: 1px solid transparent;
+  border-radius: 3px; color: #aaa; font: 11px/1.4 inherit; resize: none; outline: none;
+}
+.detail-meta .detail-desc:hover { border-color: #444; }
+.detail-meta .detail-desc:focus { border-color: #7a7aaa; color: #e0e0e0; }
+.detail-meta .detail-desc::placeholder { color: #555; }
+.detail-meta .detail-source { font-size: 10px; color: #666; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-search { padding: 6px 8px; border-bottom: 1px solid #333; display: flex; gap: 6px; }
 .detail-search input:not([type="checkbox"]) {
   flex: 1; padding: 4px 8px;

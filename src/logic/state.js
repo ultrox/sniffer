@@ -242,6 +242,14 @@ export function handleRenameRecording(state, recordingId, name) {
   return { ...state, recordings };
 }
 
+export function handleUpdateRecording(state, recordingId, updates) {
+  const recordings = state.recordings.map((r) => {
+    if (r.id !== recordingId) return r;
+    return { ...r, ...updates };
+  });
+  return { ...state, recordings };
+}
+
 export function handleUpdateEntry(state, recordingId, index, updates) {
   const recordings = state.recordings.map((r) => {
     if (r.id !== recordingId) return r;
@@ -479,6 +487,7 @@ export function getStateSnapshot(state) {
       name: r.name,
       timestamp: r.timestamp,
       sourceUrl: r.sourceUrl,
+      description: r.description || "",
       count: r.entries.length,
       originGroupIds: r.originGroupIds || [],
     })),
