@@ -47,6 +47,7 @@ import {
       const result = doFindMatch(url, method);
       if (result) {
         post({ type: "replayed" });
+        if (result.entry.delay > 0) await new Promise(r => setTimeout(r, result.entry.delay));
         const body = substituteParams(result.entry.body, result.params);
         return new Response(body, {
           status: result.entry.status,
@@ -121,7 +122,7 @@ import {
             self.onreadystatechange(new Event("readystatechange"));
           if (self.onload) self.onload(new ProgressEvent("load"));
           if (self.onloadend) self.onloadend(new ProgressEvent("loadend"));
-        }, 0);
+        }, result.entry.delay || 0);
         return;
       }
     }
@@ -265,21 +266,23 @@ import {
         const replaying = r.id in activeReplays;
         const recording = isRecording && recordTargetId === r.id;
 
-        const btnStyle = replaying
+        const replayStyle = replaying
           ? "padding:3px 8px;border:1px solid #2ecc71;border-radius:4px;background:#2ecc71;color:#fff;cursor:pointer;font:10px monospace;flex-shrink:0;"
           : "padding:3px 8px;border:1px solid #444;border-radius:4px;background:#2a2a3e;color:#888;cursor:pointer;font:10px monospace;flex-shrink:0;";
-        const btnText = replaying ? "Stop" : "Replay";
-        const action = replaying ? "stopReplay" : "startReplay";
+        const replayText = replaying ? "Stop" : "Replay";
+        const replayAction = replaying ? "stopReplay" : "startReplay";
 
-        const recBadge = recording
-          ? `<span style="padding:2px 6px;border-radius:4px;font-size:9px;font-weight:bold;background:#e74c3c;color:#fff;flex-shrink:0;">REC</span>`
-          : "";
+        const recStyle = recording
+          ? "padding:3px 8px;border:1px solid #e74c3c;border-radius:4px;background:#e74c3c;color:#fff;cursor:pointer;font:10px monospace;flex-shrink:0;"
+          : "padding:3px 8px;border:1px solid #444;border-radius:4px;background:#2a2a3e;color:#888;cursor:pointer;font:10px monospace;flex-shrink:0;";
+        const recText = recording ? "Stop" : "Rec";
+        const recAction = recording ? "stopRecord" : "startRecord";
 
         html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid #222;">` +
           `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#e0e0e0;cursor:pointer;" title="${esc(r.name)}" data-action="openRecording" data-id="${r.id}">${esc(r.name)}</span>` +
-          recBadge +
           `<span style="font-size:10px;color:#666;white-space:nowrap;">${r.count}</span>` +
-          `<button style="${btnStyle}" data-action="${action}" data-id="${r.id}">${btnText}</button>` +
+          `<button style="${recStyle}" data-action="${recAction}" data-id="${r.id}">${recText}</button>` +
+          `<button style="${replayStyle}" data-action="${replayAction}" data-id="${r.id}">${replayText}</button>` +
           `</div>`;
       }
     }
@@ -305,7 +308,12 @@ import {
           post({ type: "openRecording", recordingId: id });
           return;
         }
-        if (action === "startReplay") {
+        if (action === "startRecord") {
+          const state = await request({ type: "getState" });
+          await request({ type: "startRecord", filters: state?.recordFilters || ["xhr", "fetch"], targetId: id });
+        } else if (action === "stopRecord") {
+          await request({ type: "stopRecordInto", recordingId: id });
+        } else if (action === "startReplay") {
           await request({ type: "startReplay", recordingId: id });
         } else if (action === "stopReplay") {
           await request({ type: "stopReplay", recordingId: id });

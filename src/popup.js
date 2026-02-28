@@ -839,6 +839,9 @@ function renderDetailEntries(entries) {
             <label>Kind
               <input name="kind" value="${esc(e.kind || "")}">
             </label>
+            <label>Delay ms
+              <input name="delay" type="number" min="0" value="${e.delay || 0}">
+            </label>
           </div>
           ${renderPayload(e.payload)}
           <div class="edit-actions">
@@ -1472,6 +1475,7 @@ detailEntries.addEventListener("click", (e) => {
       method: form.querySelector('[name="method"]').value,
       status: parseInt(form.querySelector('[name="status"]').value) || 200,
       kind: form.querySelector('[name="kind"]').value,
+      delay: parseInt(form.querySelector('[name="delay"]').value) || 0,
       body,
     };
     if (entry?.bodyVariants) {

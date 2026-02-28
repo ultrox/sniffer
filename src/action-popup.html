@@ -4,7 +4,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 180px;
+    width: 220px;
     font: 12px/1.4 -apple-system, sans-serif;
     background: #1a1a2e;
     color: #e0e0e0;
@@ -50,10 +50,34 @@
     color: #fff;
     cursor: default;
   }
+  .recs { max-height: 200px; overflow-y: auto; }
+  .rec {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 8px;
+  }
+  .rec:hover { background: #2a2a3e; border-radius: 4px; }
+  .rec-name {
+    flex: 1; font-size: 11px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    cursor: pointer;
+  }
+  .rec-name:hover { color: #fff; }
+  .rec button {
+    padding: 2px 6px; border: 1px solid #444; border-radius: 3px;
+    background: transparent; color: #888; cursor: pointer;
+    font: 10px -apple-system, sans-serif;
+  }
+  .rec button:hover { border-color: #666; color: #e0e0e0; }
+  .rec button.on { border-color: #2ecc71; color: #2ecc71; }
+  .rec button.recording { border-color: #e74c3c; color: #e74c3c; animation: pulse 1s infinite; }
+  .empty { padding: 4px 8px; font-size: 10px; color: #555; }
+  @keyframes pulse { 50% { opacity: 0.6; } }
 </style>
 </head>
 <body>
   <a id="dashboard">Open Dashboard</a>
+  <div class="sep"></div>
+  <div class="recs" id="recs"></div>
   <div class="sep"></div>
   <div class="corners">
     <span class="label">Position</span>
