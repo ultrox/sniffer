@@ -65,6 +65,20 @@ function persist(...keys) {
   chrome.storage.local.set(data);
 }
 
+const POPUP_BASE = chrome.runtime.getURL("src/popup.html");
+
+function openOrReuseDashboard(url) {
+  chrome.tabs.query({}, (tabs) => {
+    const existing = tabs.find((t) => t.url?.startsWith(POPUP_BASE));
+    if (existing) {
+      chrome.tabs.update(existing.id, { url, active: true });
+      chrome.windows.update(existing.windowId, { focused: true });
+    } else {
+      chrome.tabs.create({ url });
+    }
+  });
+}
+
 function sendToTab(tabId, mode, entries, originGroups) {
   chrome.tabs.sendMessage(tabId, {
     source: "sniffer-bg",
@@ -406,25 +420,14 @@ function handleMessage(msg, sender, sendResponse) {
   }
 
   if (msg.type === "openRecording") {
-    chrome.tabs.create({
-      url: chrome.runtime.getURL("src/popup.html?recording=" + msg.recordingId),
-    });
+    openOrReuseDashboard(POPUP_BASE + "?recording=" + msg.recordingId);
     sendResponse({});
     return true;
   }
 
   if (msg.type === "openDashboard") {
     if (msg.tabId) originTabId = msg.tabId;
-    const popupUrl = chrome.runtime.getURL("src/popup.html");
-    chrome.tabs.query({}, (tabs) => {
-      const existing = tabs.find((t) => t.url?.startsWith(popupUrl));
-      if (existing) {
-        chrome.tabs.update(existing.id, { active: true });
-        chrome.windows.update(existing.windowId, { focused: true });
-      } else {
-        chrome.tabs.create({ url: popupUrl });
-      }
-    });
+    openOrReuseDashboard(POPUP_BASE);
     sendResponse({});
     return true;
   }

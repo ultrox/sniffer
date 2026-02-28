@@ -780,7 +780,7 @@ function renderDetailEntries(entries) {
       const checked = !e.disabled;
       const row = `
       <div class="detail-row${showPerEntry ? "" : " no-toggle"}" data-index="${i}">
-        ${showPerEntry ? `<input type="checkbox" class="detail-entry-toggle" data-index="${i}" ${checked ? "checked" : ""}>` : ""}
+        ${showPerEntry ? `<input type="checkbox" class="detail-entry-toggle" data-index="${i}" ${checked ? "checked" : ""} title="Shift+click to solo">` : ""}
         <span class="method ${e.method}">${e.method}</span>
         <span class="type">${e.kind || ""}</span>
         <span class="url" title="${esc(e.url)}">${esc(cleanUrl(e.url))}</span>
