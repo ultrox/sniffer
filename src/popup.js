@@ -579,10 +579,7 @@ function showMergePicker(sourceId) {
 function openDetail(recordingId) {
   detailRecordingId = recordingId;
   expandedEntry = -1;
-  detailSort = null;
   entryTogglesVisible = false;
-  detailSortBtn.classList.remove("active");
-  detailSortBtn.textContent = "Sort";
   detailPathFilter.value = "";
   detailBodyFilter.value = "";
   currentView = "detail";
@@ -703,6 +700,11 @@ function loadDetail() {
         if (renameInput) renameInput.replaceWith(span);
       }
 
+      // Restore sort preference from recording
+      detailSort = rec.sort || null;
+      detailSortBtn.classList.toggle("active", !!detailSort);
+      detailSortBtn.textContent = detailSort ? "Sort: URL" : "Sort";
+
       // Render meta (description + source URL)
       const metaEl = document.getElementById("detailMeta");
       let sourceHtml = "";
@@ -810,6 +812,11 @@ detailSortBtn.addEventListener("click", () => {
   detailSort = detailSort ? null : "url";
   detailSortBtn.classList.toggle("active", !!detailSort);
   detailSortBtn.textContent = detailSort ? "Sort: URL" : "Sort";
+  chrome.runtime.sendMessage({
+    type: "updateRecording",
+    recordingId: detailRecordingId,
+    updates: { sort: detailSort },
+  });
   applyDetailFilters();
 });
 
