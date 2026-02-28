@@ -672,8 +672,11 @@ function loadDetail() {
       if (rec.sourceUrl) {
         try {
           const u = new URL(rec.sourceUrl);
-          sourceHtml = `<div class="detail-source" title="${esc(rec.sourceUrl)}">Captured on ${esc(u.host + u.pathname)}</div>`;
+          sourceHtml = `<div class="detail-source"><a href="${esc(rec.sourceUrl)}" target="_blank" title="${esc(rec.sourceUrl)}">Captured on ${esc(u.host + u.pathname)}</a> <span class="detail-source-edit" title="Edit URL">edit</span></div>`;
         } catch {}
+      }
+      if (!sourceHtml) {
+        sourceHtml = `<div class="detail-source"><span class="detail-source-edit" title="Set source URL">+ Add source URL</span></div>`;
       }
       metaEl.innerHTML = `<textarea class="detail-desc" rows="1" placeholder="Add description...">${esc(rec.description || "")}</textarea>${sourceHtml}`;
       const descEl = metaEl.querySelector(".detail-desc");
@@ -682,6 +685,27 @@ function loadDetail() {
           type: "updateRecording",
           recordingId: detailRecordingId,
           updates: { description: descEl.value },
+        });
+      });
+      metaEl.querySelector(".detail-source-edit")?.addEventListener("click", () => {
+        const sourceDiv = metaEl.querySelector(".detail-source");
+        const input = document.createElement("input");
+        input.className = "detail-source-input";
+        input.value = rec.sourceUrl || "";
+        input.placeholder = "https://...";
+        sourceDiv.replaceChildren(input);
+        input.focus();
+        input.addEventListener("blur", () => {
+          const val = input.value.trim();
+          chrome.runtime.sendMessage({
+            type: "updateRecording",
+            recordingId: detailRecordingId,
+            updates: { sourceUrl: val || null },
+          }, () => loadDetail());
+        });
+        input.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") input.blur();
+          if (ev.key === "Escape") loadDetail();
         });
       });
 
